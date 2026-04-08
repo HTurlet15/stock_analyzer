@@ -1,0 +1,129 @@
+import { useState, useEffect } from "react";
+import { calculateDCF, num, pct } from "../utils";
+import "./DCFSection.css";
+
+const ScenarioCard = ({ label, result, color, years }) => {
+  if (!result) return null;
+  return (
+    <div className={`scenario-card ${color}`}>
+      <p className="scenario-label">{label}</p>
+      <div className="scenario-main">
+        <span className="scenario-return">{(result.returnWithDivs * 100).toFixed(1)}%</span>
+        <span className="scenario-period">/an ({years}a)</span>
+      </div>
+      <div className="scenario-details">
+        <div className="sd-row"><span>Sans dividendes</span><span>{(result.returnNoDivs * 100).toFixed(1)}%/an</span></div>
+        <div className="sd-row"><span>Prix cible</span><span>${num(result.priceFuture)}</span></div>
+        <div className="sd-row"><span>Dividendes cumulés</span><span>${num(result.dividendsCumulated)}</span></div>
+        <div className="sd-row total"><span>Valeur totale</span><span>${num(result.totalValue)}</span></div>
+      </div>
+    </div>
+  );
+};
+
+const InputRow = ({ label, value, onChange, isPercent }) => (
+  <div className="input-row">
+    <label className="input-label">{label}</label>
+    <div className="input-wrap">
+      <input
+        type="number"
+        className="dcf-input"
+        value={isPercent ? (value * 100).toFixed(1) : value.toFixed(1)}
+        step="0.5"
+        onChange={(e) => onChange(isPercent ? parseFloat(e.target.value) / 100 : parseFloat(e.target.value))}
+      />
+      <span className="input-unit">{isPercent ? "%" : "x"}</span>
+    </div>
+  </div>
+);
+
+export default function DCFSection({ stock, onUpdate }) {
+  const s = stock;
+  const def = {
+    years: 5,
+    bear: {
+      epsGrowth: Math.max(((s.analystEpsGrowth || s.epsGrowth || 0.05)) * 0.6, 0.01),
+      peExit: (s.peHistorical || s.peCurrent || 18) * 0.85,
+      divGrowthRate: (s.divGrowth || 0.03) * 0.6,
+    },
+    base: {
+      epsGrowth: s.analystEpsGrowth || s.epsGrowth || 0.08,
+      peExit: s.peHistorical || s.peCurrent || 20,
+      divGrowthRate: s.divGrowth || 0.05,
+    },
+    bull: {
+      epsGrowth: (s.analystEpsGrowth || s.epsGrowth || 0.08) * 1.4,
+      peExit: (s.peHistorical || s.peCurrent || 20) * 1.2,
+      divGrowthRate: (s.divGrowth || 0.05) * 1.4,
+    },
+  };
+
+  const [assum, setAssum] = useState(s.dcfAssumptions || def);
+  const bearResult = calculateDCF(s, assum.bear, assum.years);
+  const baseResult = calculateDCF(s, assum.base, assum.years);
+  const bullResult = calculateDCF(s, assum.bull, assum.years);
+
+  useEffect(() => {
+    onUpdate(s.symbol, { assumptions: { bear: bearResult, base: baseResult, bull: bullResult }, dcfAssumptions: assum });
+  // eslint-disable-next-line
+  }, [assum]);
+
+  const update = (scenario, field, value) =>
+    setAssum((p) => ({ ...p, [scenario]: { ...p[scenario], [field]: value } }));
+
+  return (
+    <div className="dcf-section">
+      <div className="dcf-anchors">
+        <p className="section-label">Ancres historiques</p>
+        <div className="anchor-chips">
+          {[
+            { label: "BPA actuel", val: `$${num(s.epsCurrent)}` },
+            { label: "BPA CAGR 5a", val: pct(s.epsGrowth) },
+            { label: "BPA analystes", val: pct(s.analystEpsGrowth) },
+            { label: "PER actuel", val: `${num(s.peCurrent, 1)}x` },
+            { label: "PER moyen 5a", val: `${num(s.peHistorical, 1)}x` },
+            { label: "Div./action", val: `$${num(s.dividendPerShare)}` },
+            { label: "Div. CAGR", val: pct(s.divGrowth) },
+            { label: "Prix actuel", val: `$${num(s.price)}` },
+          ].map((a) => (
+            <div key={a.label} className="anchor-chip">
+              <span className="ac-label">{a.label}</span>
+              <span className="ac-value">{a.val}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="dcf-horizon">
+        <label className="input-label">Horizon</label>
+        <div className="horizon-btns">
+          {[3, 5, 7, 10].map((y) => (
+            <button key={y} className={`horizon-btn ${assum.years === y ? "active" : ""}`} onClick={() => setAssum((p) => ({ ...p, years: y }))}>
+              {y} ans
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="dcf-grid">
+        {[
+          { key: "bear", label: "🐻 Bear", color: "red" },
+          { key: "base", label: "📊 Base (analystes)", color: "blue" },
+          { key: "bull", label: "🚀 Bull", color: "green" },
+        ].map(({ key, label, color }) => (
+          <div key={key} className="dcf-col">
+            <p className={`scenario-header ${color}`}>{label}</p>
+            <InputRow label="Croissance BPA" value={assum[key].epsGrowth} onChange={(v) => update(key, "epsGrowth", v)} isPercent />
+            <InputRow label="PER de sortie" value={assum[key].peExit} onChange={(v) => update(key, "peExit", v)} isPercent={false} />
+            <InputRow label="Croissance dividende" value={assum[key].divGrowthRate} onChange={(v) => update(key, "divGrowthRate", v)} isPercent />
+            <ScenarioCard label={label} result={key === "bear" ? bearResult : key === "base" ? baseResult : bullResult} color={color} years={assum.years} />
+          </div>
+        ))}
+      </div>
+
+      <p className="dcf-disclaimer">
+        ⚠️ Ces projections reposent sur tes hypothèses. Investis seulement si le scénario Bear dépasse ton seuil minimum (ex: 8%/an).
+      </p>
+    </div>
+  );
+}
