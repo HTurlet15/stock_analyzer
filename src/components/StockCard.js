@@ -5,37 +5,198 @@ import ManagementSection from "./ManagementSection";
 import DCFSection from "./DCFSection";
 import "./StockCard.css";
 
-const RatioRow = ({ label, value, color, sub }) => (
-  <div className="ratio-row">
-    <span className="ratio-label">{label}</span>
-    <div className="ratio-right">
-      {sub && <span className="ratio-sub">{sub}</span>}
-      <span className={`ratio-value ${color}`}>{value}</span>
+// ── Financial Table ──────────────────────────────────────────────────────────
+
+const FinancialTable = ({ raw }) => {
+  const LIMIT = 5;
+  const inc = [...(raw.income   || [])].slice(0, LIMIT).reverse();
+  const bal = [...(raw.balance  || [])].slice(0, LIMIT).reverse();
+  const cf  = [...(raw.cashflow || [])].slice(0, LIMIT).reverse();
+  const met = [...(raw.metrics  || [])].slice(0, LIMIT).reverse();
+  const rat = [...(raw.ratios   || [])].slice(0, LIMIT).reverse();
+
+  const YEARS = inc.map(r => r.date.slice(0, 4));
+  if (!YEARS.length) return <p className="empty-table">Données indisponibles.</p>;
+
+  const byYear = (arr, year) => arr.find(r => r.date?.startsWith(year)) || {};
+
+  // ── Trend helpers ────────────────────────────────────────────────────────
+  const trendCAGR = (values, good = 0.10, ok = 0.05) => {
+    const v = values.filter(x => x != null && isFinite(x));
+    if (v.length < 2 || v[0] <= 0) return { label: "—", cls: "dim" };
+    const rate = Math.pow(v[v.length - 1] / v[0], 1 / (v.length - 1)) - 1;
+    if (!isFinite(rate) || isNaN(rate)) return { label: "—", cls: "dim" };
+    const cls = rate >= good ? "green" : rate >= ok ? "orange" : "red";
+    return { label: `${rate >= 0 ? "↑" : "↓"} ${Math.abs(rate * 100).toFixed(1)}%/an`, cls };
+  };
+
+  const trendDir = (values, inverse = false) => {
+    const v = values.filter(x => x != null && isFinite(x));
+    if (v.length < 2) return { label: "—", cls: "dim" };
+    const dec = v[v.length - 1] < v[0];
+    const good = inverse ? dec : !dec;
+    return { label: dec ? "↓ Décroissant" : "↑ Croissant", cls: good ? "green" : "red" };
+  };
+
+  // trendLevel: color from latest value against thresholds, direction from movement
+  const trendLevel = (values, good, ok, inverse = false) => {
+    const v = values.filter(x => x != null && isFinite(x));
+    if (!v.length) return { label: "—", cls: "dim" };
+    const latest = v[v.length - 1];
+    const cls = !inverse
+      ? (latest >= good ? "green" : latest >= ok ? "orange" : "red")
+      : (latest <= good ? "green" : latest <= ok ? "orange" : "red");
+    if (v.length < 2) return { label: "—", cls };
+    const dec = latest < v[0];
+    return { label: dec ? "↓ Décroissant" : "↑ Croissant", cls };
+  };
+
+  // ── Formatters ────────────────────────────────────────────────────────────
+  const fM  = v => v == null ? "—" : money(v);
+  const fP  = v => v == null ? "—" : pct(v);
+  const fR  = v => v == null ? "—" : `${num(v, 1)}x`;
+  const fE  = v => v == null ? "—" : `$${num(v, 2)}`;
+  const fSh = v => {
+    if (v == null) return "—";
+    const abs = Math.abs(v);
+    return abs >= 1e9 ? `${(abs / 1e9).toFixed(2)}B` : `${(abs / 1e6).toFixed(0)}M`;
+  };
+
+  // ── Row builder ──────────────────────────────────────────────────────────
+  const rows = [];
+  const sec = title => rows.push({ isSection: true, title });
+  const row = (label, getVal, fmt, getTrend) => {
+    const vals = YEARS.map(getVal);
+    rows.push({ label, values: vals.map(fmt), trend: getTrend(vals) });
+  };
+
+  // Compte de résultat
+  sec("Compte de résultat");
+  row("Chiffre d'affaires",
+    y => byYear(inc, y).revenue, fM,
+    v => trendCAGR(v));
+  row("Résultat net",
+    y => byYear(inc, y).netIncome, fM,
+    v => trendCAGR(v));
+  row("Marge nette",
+    y => { const r = byYear(inc, y); return r.netIncome && r.revenue ? r.netIncome / r.revenue : null; }, fP,
+    v => trendLevel(v, 0.20, 0.10));
+  row("EBITDA",
+    y => byYear(inc, y).ebitda, fM,
+    v => trendCAGR(v));
+  row("BPA (dilué)",
+    y => byYear(inc, y).eps, fE,
+    v => trendCAGR(v));
+  row("Actions en circulation",
+    y => byYear(inc, y).weightedAverageShsOut, fSh,
+    v => trendDir(v, true)); // décroissant = bien
+
+  // Bilan
+  sec("Bilan");
+  row("Fonds propres",
+    y => byYear(bal, y).totalStockholdersEquity, fM,
+    v => trendDir(v));
+  row("Dette totale",
+    y => byYear(bal, y).totalDebt, fM,
+    v => trendDir(v, true));
+  row("Dette nette",
+    y => byYear(bal, y).netDebt, fM,
+    v => trendDir(v, true));
+  row("Dette nette / EBITDA",
+    y => { const b = byYear(bal, y); const i = byYear(inc, y); return b.totalDebt && i.ebitda && i.ebitda > 0 ? b.totalDebt / i.ebitda : null; }, fR,
+    v => trendLevel(v, 2, 3, true)); // < 2x = bien
+
+  // Cash Flow
+  sec("Cash Flow");
+  row("Free Cash Flow",
+    y => byYear(cf, y).freeCashFlow, fM,
+    v => trendCAGR(v));
+  row("Capex",
+    y => { const r = byYear(cf, y); return r.capitalExpenditure != null ? Math.abs(r.capitalExpenditure) : null; }, fM,
+    v => trendDir(v)); // croissant = investissement = neutre→bien
+  row("Dividendes versés",
+    y => { const r = byYear(cf, y); return r.dividendsPaid != null ? Math.abs(r.dividendsPaid) : null; }, fM,
+    v => trendDir(v));
+
+  // Rentabilité
+  sec("Rentabilité");
+  row("ROIC",
+    y => byYear(met, y).roic, fP,
+    v => trendLevel(v, 0.20, 0.15));
+  row("ROE",
+    y => byYear(met, y).roe, fP,
+    v => trendLevel(v, 0.15, 0.10));
+  row("PER historique",
+    y => byYear(met, y).peRatio, fR,
+    v => trendDir(v, true)); // baisse = moins cher
+  row("Payout Ratio",
+    y => byYear(rat, y).payoutRatio, fP,
+    v => trendLevel(v, 0.40, 0.60, true)); // < 40% = bien
+  row("Dette / Fonds propres",
+    y => byYear(rat, y).debtToEquity, fR,
+    v => trendLevel(v, 1, 2, true)); // < 1x = bien
+
+  return (
+    <div className="fin-table-wrap">
+      <table className="fin-table">
+        <thead>
+          <tr>
+            <th className="ft-label" />
+            {YEARS.map(y => <th key={y} className="ft-year">{y}</th>)}
+            <th className="ft-trend">Tendance</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) =>
+            r.isSection ? (
+              <tr key={i} className="ft-section">
+                <td colSpan={YEARS.length + 2}>{r.title}</td>
+              </tr>
+            ) : (
+              <tr key={i} className="ft-row">
+                <td className="ft-label">{r.label}</td>
+                {r.values.map((v, j) => <td key={j} className="ft-data">{v}</td>)}
+                <td className={`ft-trend ${r.trend.cls}`}>{r.trend.label}</td>
+              </tr>
+            )
+          )}
+        </tbody>
+      </table>
     </div>
+  );
+};
+
+// ── Key Checks ───────────────────────────────────────────────────────────────
+
+const KeyCheck = ({ label, passed, detail }) => (
+  <div className="key-check">
+    <div className="kc-row">
+      <span className={`kc-badge ${passed === true ? "green" : passed === false ? "red" : "dim"}`}>
+        {passed === true ? "Validé" : passed === false ? "Non validé" : "N/A"}
+      </span>
+      <span className="kc-label">{label}</span>
+    </div>
+    {detail && <p className="kc-detail">{detail}</p>}
   </div>
 );
 
-const CheckRow = ({ label, value }) => (
-  <div className="ratio-row">
-    <span className="ratio-label">{label}</span>
-    <span className={`check-dot ${value === true ? "green" : value === false ? "red" : "dim"}`}>
-      {value === true ? "✓" : value === false ? "✗" : "—"}
-    </span>
-  </div>
-);
+// ── Tabs ─────────────────────────────────────────────────────────────────────
 
 const TABS = [
-  { id: "financials", label: "💰 Finances" },
-  { id: "valuation", label: "📊 Valorisation" },
-  { id: "dcf", label: "🔢 DCF" },
-  { id: "moat", label: "🛡️ MOAT" },
-  { id: "management", label: "🧠 Management" },
+  { id: "financials",  label: "Finances" },
+  { id: "valuation",   label: "Valorisation" },
+  { id: "dcf",         label: "DCF" },
+  { id: "moat",        label: "MOAT" },
+  { id: "management",  label: "Management" },
 ];
+
+// ── StockCard ────────────────────────────────────────────────────────────────
 
 export default function StockCard({ stock, onRemove, onUpdate }) {
   const [expanded, setExpanded] = useState(true);
   const [activeTab, setActiveTab] = useState("financials");
   const s = stock;
+  const raw = s.raw || {};
 
   const checks = [
     s.revenueGrowth > 0.10, s.netMargin > 0.20, s.epsGrowth > 0, s.equity > 0,
@@ -45,19 +206,40 @@ export default function StockCard({ stock, onRemove, onUpdate }) {
   const healthScore = Math.round((checks / 13) * 100);
   const healthColor = healthScore >= 70 ? "green" : healthScore >= 45 ? "orange" : "red";
 
+  // Key check details
+  const latestInc = raw.income?.[0]  || {};
+  const latestBal = raw.balance?.[0] || {};
+  const latestCF  = raw.cashflow?.[0] || {};
+
+  const ni   = latestInc.netIncome;
+  const nd   = latestBal.netDebt;
+  const fcf  = latestCF.freeCashFlow;
+  const divs = latestCF.dividendsPaid != null ? Math.abs(latestCF.dividendsPaid) : null;
+
+  const detail1 = ni && nd != null
+    ? `Résultat net : ${money(ni)} · Dette nette : ${money(nd)} → ratio ${num(nd / ni, 1)}x (seuil < 5x)`
+    : null;
+  const detail2 = fcf != null && ni
+    ? `FCF : ${money(fcf)} · Résultat net : ${money(ni)} → FCF/RN : ${pct(fcf / ni)} (seuil ≥ 70%)`
+    : null;
+  const detail3 = divs && ni
+    ? `Dividendes versés : ${money(divs)} · Résultat net : ${money(ni)}`
+    : null;
+
   return (
     <div className="stock-card fade-in">
+      {/* ── Header ── */}
       <div className="sc-header" onClick={() => setExpanded(!expanded)}>
         <div className="sc-header-left">
           <div className="sc-symbol">{s.symbol}</div>
           <div className="sc-name-wrap">
             <span className="sc-name">{s.name}</span>
-            <span className="sc-sector">{s.sector} · {s.industry}</span>
+            <span className="sc-sector">{s.sector}{s.industry ? ` · ${s.industry}` : ""}</span>
           </div>
         </div>
         <div className="sc-header-right">
           <div className="sc-price">
-            <span className="price-val">${num(s.price)}</span>
+            <span className="price-val">{s.currency === "EUR" ? "€" : "$"}{num(s.price)}</span>
             <span className="price-label">prix actuel</span>
           </div>
           <div className={`health-badge ${healthColor}`}>
@@ -77,6 +259,7 @@ export default function StockCard({ stock, onRemove, onUpdate }) {
 
       {expanded && (
         <div className="sc-body">
+          {/* ── Tabs ── */}
           <div className="sc-tabs">
             {TABS.map((t) => (
               <button key={t.id} className={`tab-btn ${activeTab === t.id ? "active" : ""}`} onClick={() => setActiveTab(t.id)}>
@@ -85,82 +268,115 @@ export default function StockCard({ stock, onRemove, onUpdate }) {
             ))}
           </div>
 
+          {/* ── Finances ── */}
           {activeTab === "financials" && (
             <div className="tab-content">
-              <div className="ratios-grid">
-                <div className="ratios-col">
-                  <p className="section-label">Croissance & Rentabilité</p>
-                  <RatioRow label="CA croissance (CAGR)" value={pct(s.revenueGrowth)} color={colorFromThresholds(s.revenueGrowth, 0.10, 0.05)} sub={money(s.revenueCurrent)} />
-                  <RatioRow label="Marge nette" value={pct(s.netMargin)} color={colorFromThresholds(s.netMargin, 0.20, 0.10)} />
-                  <RatioRow label="BPA croissance (CAGR)" value={pct(s.epsGrowth)} color={colorFromThresholds(s.epsGrowth, 0.10, 0.05)} sub={`$${num(s.epsCurrent)}`} />
-                  <RatioRow label="FCF croissance (CAGR)" value={pct(s.fcfGrowth)} color={colorFromThresholds(s.fcfGrowth, 0.10, 0.05)} sub={money(s.fcfCurrent)} />
-                  <RatioRow label="ROIC" value={pct(s.roic)} color={colorFromThresholds(s.roic, 0.20, 0.15)} />
-                  <RatioRow label="ROE" value={pct(s.roe)} color={colorFromThresholds(s.roe, 0.15, 0.10)} />
+              <FinancialTable raw={raw} />
+
+              <div className="bottom-grid">
+                {/* Questions clés */}
+                <div className="bottom-col">
+                  <p className="section-label" style={{ marginBottom: 16 }}>Questions clés</p>
+                  <KeyCheck
+                    label="Profits supérieurs à la dette nette"
+                    passed={s.profitsVsDebt}
+                    detail={detail1}
+                  />
+                  <KeyCheck
+                    label="Le cash suit les bénéfices (FCF/RN ≥ 70%)"
+                    passed={s.cashFollowsEarnings}
+                    detail={detail2}
+                  />
+                  <KeyCheck
+                    label="Dividende couvert par le résultat net"
+                    passed={s.dividendCoveredByEarnings}
+                    detail={detail3}
+                  />
                 </div>
-                <div className="ratios-col">
-                  <p className="section-label">Bilan & Dividendes</p>
-                  <RatioRow label="Fonds propres" value={money(s.equity)} color={s.equity > 0 ? "green" : "red"} />
-                  <RatioRow label="Dette nette" value={s.netDebtDecreasing ? "↓ Décroissante" : "↑ Croissante"} color={s.netDebtDecreasing ? "green" : "red"} sub={money(s.netDebt)} />
-                  <RatioRow label="Dette / EBITDA" value={num(s.debtToEbitda)} color={colorFromThresholds(s.debtToEbitda, 2, 3, true)} />
-                  <RatioRow label="Payout Ratio" value={pct(s.payoutRatio)} color={colorFromThresholds(s.payoutRatio, 0.40, 0.60, true)} />
-                  <RatioRow label="Dividendes / FCF" value={pct(s.divToFcf)} color={colorFromThresholds(s.divToFcf, 0.50, 0.70, true)} />
-                  <RatioRow label="Actions en circulation" value={s.sharesDecreasing ? "↓ Décroissantes" : "↑ Croissantes"} color={s.sharesDecreasing ? "green" : "orange"} />
-                  <RatioRow label="Capex" value={s.capexGrowing ? "↑ En hausse" : "↓ En baisse"} color={s.capexGrowing ? "green" : "orange"} sub={money(s.capex)} />
-                </div>
-                <div className="ratios-col">
-                  <p className="section-label">3 Questions Clés</p>
-                  <CheckRow label="Profits > Dette ?" value={s.profitsVsDebt} />
-                  <CheckRow label="Cash suit les bénéfices ?" value={s.cashFollowsEarnings} />
-                  <CheckRow label="Dividende couvert par résultats ?" value={s.dividendCoveredByEarnings} />
-                  <div style={{ marginTop: 20 }}>
-                    <p className="section-label">Dividendes</p>
-                    <RatioRow label="Rendement actuel" value={pct(s.dividendYield)} color={colorFromThresholds(s.dividendYield, 0.02, 0.01)} />
-                    <RatioRow label="Dividende / action" value={`$${num(s.dividendPerShare)}`} color="dim" />
-                    <RatioRow label="Croissance dividende (CAGR)" value={pct(s.divGrowth)} color={colorFromThresholds(s.divGrowth, 0.05, 0.02)} />
-                  </div>
-                  <div className="health-summary">
-                    <p className="section-label" style={{marginTop: 20}}>Score santé</p>
-                    <div className={`health-bar-wrap ${healthColor}`}>
-                      <div className="health-bar-fill" style={{ width: `${healthScore}%` }} />
+
+                {/* Dividendes + score */}
+                <div className="bottom-col">
+                  <p className="section-label" style={{ marginBottom: 16 }}>Dividendes</p>
+                  <div className="simple-rows">
+                    <div className="simple-row">
+                      <span className="sr-label">Rendement actuel</span>
+                      <span className={`sr-value ${colorFromThresholds(s.dividendYield, 0.02, 0.01)}`}>{pct(s.dividendYield)}</span>
                     </div>
-                    <span className={`health-pct ${healthColor}`}>{healthScore}/100</span>
+                    <div className="simple-row">
+                      <span className="sr-label">Dividende / action</span>
+                      <span className="sr-value dim">{s.currency === "EUR" ? "€" : "$"}{num(s.dividendPerShare)}</span>
+                    </div>
+                    <div className="simple-row">
+                      <span className="sr-label">Croissance dividende (CAGR)</span>
+                      <span className={`sr-value ${colorFromThresholds(s.divGrowth, 0.05, 0.02)}`}>{pct(s.divGrowth)}</span>
+                    </div>
                   </div>
+
+                  <p className="section-label" style={{ marginTop: 24, marginBottom: 12 }}>Score santé</p>
+                  <div className={`health-bar-wrap ${healthColor}`}>
+                    <div className="health-bar-fill" style={{ width: `${healthScore}%` }} />
+                  </div>
+                  <span className={`health-pct ${healthColor}`}>{healthScore}/100</span>
                 </div>
               </div>
             </div>
           )}
 
+          {/* ── Valorisation ── */}
           {activeTab === "valuation" && (
             <div className="tab-content">
               <div className="ratios-grid">
                 <div className="ratios-col">
                   <p className="section-label">Valorisation actuelle</p>
-                  <RatioRow label="PER actuel" value={num(s.peCurrent, 1)} color={colorFromThresholds(s.peCurrent, 20, 30, true)} />
-                  <RatioRow label="PER historique moyen" value={num(s.peHistorical, 1)} color="dim" />
-                  <RatioRow label="Forward PER (12m)" value={num(s.forwardPE, 1)} color={colorFromThresholds(s.forwardPE, 20, 30, true)} />
+                  <div className="simple-rows">
+                    <div className="simple-row">
+                      <span className="sr-label">PER actuel</span>
+                      <span className={`sr-value ${colorFromThresholds(s.peCurrent, 20, 30, true)}`}>{num(s.peCurrent, 1)}x</span>
+                    </div>
+                    <div className="simple-row">
+                      <span className="sr-label">PER historique moyen</span>
+                      <span className="sr-value dim">{num(s.peHistorical, 1)}x</span>
+                    </div>
+                    <div className="simple-row">
+                      <span className="sr-label">Forward PER (12m)</span>
+                      <span className={`sr-value ${colorFromThresholds(s.forwardPE, 20, 30, true)}`}>{num(s.forwardPE, 1)}x</span>
+                    </div>
+                    <div className="simple-row">
+                      <span className="sr-label">Capitalisation</span>
+                      <span className="sr-value dim">{money(s.marketCap)}</span>
+                    </div>
+                  </div>
                 </div>
                 <div className="ratios-col">
                   <p className="section-label">Croissance attendue (analystes)</p>
-                  <RatioRow label="BPA croissance estimée" value={pct(s.analystEpsGrowth)} color={colorFromThresholds(s.analystEpsGrowth, 0.10, 0.05)} />
-                  <RatioRow label="CA croissance estimée" value={pct(s.analystRevGrowth)} color={colorFromThresholds(s.analystRevGrowth, 0.10, 0.05)} />
+                  <div className="simple-rows">
+                    <div className="simple-row">
+                      <span className="sr-label">BPA croissance estimée</span>
+                      <span className={`sr-value ${colorFromThresholds(s.analystEpsGrowth, 0.10, 0.05)}`}>{pct(s.analystEpsGrowth)}</span>
+                    </div>
+                    <div className="simple-row">
+                      <span className="sr-label">CA croissance estimée</span>
+                      <span className={`sr-value ${colorFromThresholds(s.analystRevGrowth, 0.10, 0.05)}`}>{pct(s.analystRevGrowth)}</span>
+                    </div>
+                  </div>
                 </div>
                 <div className="ratios-col">
                   <p className="section-label">Lecture</p>
                   <div className="valuation-note">
-                    {s.peCurrent && s.peHistorical && (
+                    {s.peCurrent && s.peHistorical ? (
                       <p>PER actuel <strong>{num(s.peCurrent, 1)}x</strong> {s.peCurrent < s.peHistorical ? `en dessous de la moyenne historique (${num(s.peHistorical, 1)}x) → potentiellement sous-évalué.` : `au-dessus de la moyenne historique (${num(s.peHistorical, 1)}x) → surveiller.`}</p>
-                    )}
-                    {s.forwardPE && s.peCurrent && (
-                      <p style={{marginTop: 10}}>Forward PER <strong>{num(s.forwardPE, 1)}x</strong> : {s.forwardPE < s.peCurrent ? "bénéfices attendus en hausse → positif." : "multiple en expansion → surveiller."}</p>
-                    )}
+                    ) : null}
+                    {s.forwardPE && s.peCurrent ? (
+                      <p style={{ marginTop: 10 }}>Forward PER <strong>{num(s.forwardPE, 1)}x</strong> : {s.forwardPE < s.peCurrent ? "bénéfices attendus en hausse → positif." : "multiple en expansion → surveiller."}</p>
+                    ) : null}
                   </div>
                 </div>
               </div>
             </div>
           )}
 
-          {activeTab === "dcf" && <DCFSection stock={stock} onUpdate={onUpdate} />}
-          {activeTab === "moat" && <MoatSection stock={stock} onUpdate={onUpdate} />}
+          {activeTab === "dcf"        && <DCFSection      stock={stock} onUpdate={onUpdate} />}
+          {activeTab === "moat"       && <MoatSection     stock={stock} onUpdate={onUpdate} />}
           {activeTab === "management" && <ManagementSection stock={stock} onUpdate={onUpdate} />}
         </div>
       )}

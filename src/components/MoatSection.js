@@ -2,18 +2,18 @@ import { useState } from "react";
 import "./MoatSection.css";
 
 const MOAT_TYPES = [
-  { id: "intangibles", emoji: "🏷️", label: "Actifs Intangibles", desc: "Marque avec pricing power ou brevets/licences créant un monopole légal ou mental.", questions: ["L'entreprise peut-elle augmenter ses prix sans perdre de clients ?", "Détient-elle des brevets, licences ou droits exclusifs significatifs ?", "La marque crée-t-elle une préférence irrationnelle chez le consommateur ?"] },
-  { id: "switching", emoji: "🔒", label: "Coûts de Changement", desc: "Les clients sont piégés car le coût de changer de fournisseur est trop élevé.", questions: ["Changer de fournisseur implique-t-il des migrations coûteuses ou risquées ?", "Les clients sont-ils intégrés dans l'écosystème produit ?", "Le taux de rétention clients est-il supérieur à 90% ?"] },
-  { id: "network", emoji: "🌐", label: "Effet de Réseau", desc: "Chaque nouvel utilisateur augmente la valeur du service pour tous les autres.", questions: ["Le service devient-il plus utile à mesure que le nombre d'utilisateurs croît ?", "Y a-t-il des effets de réseau bifaces (marketplace, paiement) ?", "Les concurrents peinent-ils à atteindre la masse critique ?"] },
-  { id: "cost", emoji: "⚡", label: "Avantage de Coût", desc: "Production à un coût inatteignable pour les concurrents grâce aux économies d'échelle.", questions: ["L'entreprise a-t-elle des économies d'échelle significatives ?", "Bénéficie-t-elle d'un accès privilégié aux ressources ou à la distribution ?", "Peut-elle asphyxier un concurrent en baissant ses prix ?"] },
-  { id: "scale", emoji: "🏔️", label: "Échelle Efficiente", desc: "Marché suffisamment petit pour ne supporter qu'un seul acteur rentable.", questions: ["Le marché adressable est-il limité à une taille qui décourage les entrants ?", "L'entreprise opère-t-elle des infrastructures à haute barrière ?", "Un concurrent devrait-il investir des milliards pour un retour trop faible ?"] },
+  { id: "intangibles", label: "Actifs Intangibles", desc: "Marque avec pricing power ou brevets/licences créant un monopole légal ou mental.", questions: ["L'entreprise peut-elle augmenter ses prix sans perdre de clients ?", "Détient-elle des brevets, licences ou droits exclusifs significatifs ?", "La marque crée-t-elle une préférence irrationnelle chez le consommateur ?"] },
+  { id: "switching",   label: "Coûts de Changement", desc: "Les clients sont piégés car le coût de changer de fournisseur est trop élevé.", questions: ["Changer de fournisseur implique-t-il des migrations coûteuses ou risquées ?", "Les clients sont-ils intégrés dans l'écosystème produit ?", "Le taux de rétention clients est-il supérieur à 90% ?"] },
+  { id: "network",     label: "Effet de Réseau", desc: "Chaque nouvel utilisateur augmente la valeur du service pour tous les autres.", questions: ["Le service devient-il plus utile à mesure que le nombre d'utilisateurs croît ?", "Y a-t-il des effets de réseau bifaces (marketplace, paiement) ?", "Les concurrents peinent-ils à atteindre la masse critique ?"] },
+  { id: "cost",        label: "Avantage de Coût", desc: "Production à un coût inatteignable pour les concurrents grâce aux économies d'échelle.", questions: ["L'entreprise a-t-elle des économies d'échelle significatives ?", "Bénéficie-t-elle d'un accès privilégié aux ressources ou à la distribution ?", "Peut-elle asphyxier un concurrent en baissant ses prix ?"] },
+  { id: "scale",       label: "Échelle Efficiente", desc: "Marché suffisamment petit pour ne supporter qu'un seul acteur rentable.", questions: ["Le marché adressable est-il limité à une taille qui décourage les entrants ?", "L'entreprise opère-t-elle des infrastructures à haute barrière ?", "Un concurrent devrait-il investir des milliards pour un retour trop faible ?"] },
 ];
 
 const SCORES = [
-  { value: 0, label: "Absent", color: "red" },
-  { value: 1, label: "Faible", color: "orange" },
-  { value: 2, label: "Modéré", color: "orange" },
-  { value: 3, label: "Fort", color: "green" },
+  { value: 0, label: "Absent",  color: "red"    },
+  { value: 1, label: "Faible",  color: "orange" },
+  { value: 2, label: "Modéré",  color: "orange" },
+  { value: 3, label: "Fort",    color: "green"  },
 ];
 
 export default function MoatSection({ stock, onUpdate }) {
@@ -21,9 +21,13 @@ export default function MoatSection({ stock, onUpdate }) {
   const [moat, setMoat] = useState(initial);
 
   const totalScore = Object.values(moat).reduce((sum, m) => sum + (m.score || 0), 0);
-  const maxScore = MOAT_TYPES.length * 3;
-  const moatPct = Math.round((totalScore / maxScore) * 100);
-  const moatLevel = moatPct >= 70 ? { label: "MOAT FORT", color: "green" } : moatPct >= 40 ? { label: "MOAT MODÉRÉ", color: "orange" } : { label: "MOAT FAIBLE", color: "red" };
+  const maxScore   = MOAT_TYPES.length * 3;
+  const moatPct    = Math.round((totalScore / maxScore) * 100);
+  const moatLevel  = moatPct >= 70
+    ? { label: "MOAT FORT",   color: "green"  }
+    : moatPct >= 40
+    ? { label: "MOAT MODÉRÉ", color: "orange" }
+    : { label: "MOAT FAIBLE", color: "red"    };
 
   const updateMoat = (id, field, value) => {
     const updated = { ...moat, [id]: { ...moat[id], [field]: value } };
@@ -48,12 +52,11 @@ export default function MoatSection({ stock, onUpdate }) {
       </div>
       <div className="moat-types">
         {MOAT_TYPES.map((type) => {
-          const m = moat[type.id];
+          const m      = moat[type.id];
           const scored = SCORES.find((s) => s.value === m.score);
           return (
             <div key={type.id} className="moat-type-card">
               <div className="mtc-header">
-                <span className="mtc-emoji">{type.emoji}</span>
                 <div className="mtc-title">
                   <span className="mtc-label">{type.label}</span>
                   <span className="mtc-desc">{type.desc}</span>
@@ -61,7 +64,7 @@ export default function MoatSection({ stock, onUpdate }) {
                 {scored && <span className={`badge ${scored.color}`}>{scored.label}</span>}
               </div>
               <div className="mtc-questions">
-                {type.questions.map((q, i) => <p key={i} className="mtc-question">→ {q}</p>)}
+                {type.questions.map((q, i) => <p key={i} className="mtc-question">— {q}</p>)}
               </div>
               <div className="mtc-score-row">
                 <span className="input-label">Évaluation</span>

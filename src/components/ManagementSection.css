@@ -14,7 +14,6 @@
 .mgmt-criteria { display: flex; flex-direction: column; gap: 12px; }
 .mgmt-criterion { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
 .mc-header { display: flex; align-items: flex-start; gap: 12px; }
-.mc-emoji { font-size: 20px; }
 .mc-title { flex: 1; display: flex; flex-direction: column; gap: 3px; }
 .mc-label { font-size: 14px; font-weight: 700; color: var(--text); }
 .mc-desc { font-size: 12px; color: var(--text-muted); line-height: 1.4; }

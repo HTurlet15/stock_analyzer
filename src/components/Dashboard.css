@@ -1,35 +1,32 @@
-.dashboard { max-width: 1200px; margin: 0 auto; padding: 40px 24px 80px; }
+.dashboard { max-width: 1200px; margin: 0 auto; padding: 48px 24px 80px; }
 
 .dash-header { margin-bottom: 40px; padding-bottom: 24px; border-bottom: 1px solid var(--border); }
-.dash-logo { display: flex; align-items: center; gap: 10px; font-size: 22px; font-weight: 800; color: var(--text); margin-bottom: 6px; letter-spacing: -0.02em; }
-.logo-icon { font-size: 24px; }
-.dash-subtitle { font-size: 12px; color: var(--text-muted); letter-spacing: 0.08em; font-family: 'DM Mono', monospace; }
+.dash-logo { font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 6px; letter-spacing: -0.01em; }
+.dash-subtitle { font-size: 12px; color: var(--text-muted); letter-spacing: 0.04em; }
 
 .dash-search-wrap { margin-bottom: 32px; }
-.dash-search { display: flex; align-items: center; gap: 10px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 8px 8px 8px 16px; transition: border-color 0.2s; }
+.dash-search { display: flex; align-items: center; gap: 10px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 6px 6px 6px 14px; transition: border-color 0.15s; }
 .dash-search:focus-within { border-color: var(--accent); }
-.search-icon { font-size: 16px; }
-.search-input { flex: 1; background: transparent; border: none; outline: none; font-family: 'DM Mono', monospace; font-size: 14px; color: var(--text); }
+.search-input { flex: 1; background: transparent; border: none; outline: none; font-family: 'Inter', sans-serif; font-size: 13px; color: var(--text); }
 .search-input::placeholder { color: var(--text-dim); }
-.dash-error { margin-top: 8px; font-size: 12px; color: var(--red); font-family: 'DM Mono', monospace; padding: 0 4px; }
+.dash-error { margin-top: 8px; font-size: 12px; color: var(--red); padding: 0 4px; }
 
-.ranking-banner { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 32px; }
-.ranking-list { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
-.ranking-item { display: flex; align-items: center; gap: 8px; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; }
-.rank-pos { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text-muted); }
-.rank-symbol { font-weight: 700; font-size: 14px; letter-spacing: 0.05em; }
-.rank-return { font-family: 'DM Mono', monospace; font-size: 16px; font-weight: 500; }
+.ranking-banner { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 28px; }
+.ranking-list { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.ranking-item { display: flex; align-items: center; gap: 10px; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; }
+.rank-pos { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.rank-symbol { font-weight: 600; font-size: 13px; letter-spacing: 0.04em; }
+.rank-return { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .rank-return.green { color: var(--green); }
 .rank-return.orange { color: var(--orange); }
 .rank-return.red { color: var(--red); }
-.rank-label { font-size: 10px; opacity: 0.6; margin-left: 2px; }
+.rank-label { font-size: 10px; opacity: 0.6; margin-left: 1px; }
 
 .empty-state { text-align: center; padding: 80px 40px; color: var(--text-muted); }
-.empty-icon { font-size: 48px; margin-bottom: 20px; }
-.empty-state h2 { font-size: 20px; color: var(--text); margin-bottom: 8px; }
-.empty-state p { font-size: 14px; margin-bottom: 24px; }
+.empty-state h2 { font-size: 18px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+.empty-state p { font-size: 13px; margin-bottom: 24px; }
 .empty-examples { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
-.example-chip { background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; padding: 6px 14px; color: var(--text-muted); font-family: 'DM Mono', monospace; font-size: 12px; cursor: pointer; transition: all 0.2s; }
+.example-chip { background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; padding: 6px 14px; color: var(--text-muted); font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.15s; letter-spacing: 0.04em; }
 .example-chip:hover { border-color: var(--accent); color: var(--accent); }
 
-.stock-list { display: flex; flex-direction: column; gap: 24px; }
+.stock-list { display: flex; flex-direction: column; gap: 20px; }

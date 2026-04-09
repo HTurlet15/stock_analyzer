@@ -48,26 +48,22 @@ export default function Dashboard() {
   return (
     <div className="dashboard">
       <header className="dash-header">
-        <div className="dash-logo">
-          <span className="logo-icon">📈</span>
-          <span>StockAnalyzer</span>
-        </div>
+        <div className="dash-logo">StockAnalyzer</div>
         <p className="dash-subtitle">Analyse fondamentale · DCF · MOAT · Ranking</p>
       </header>
 
       <div className="dash-search-wrap">
         <div className="dash-search">
-          <span className="search-icon">🔍</span>
           <input
             className="search-input"
-            placeholder="Ticker symbol... (ex: AAPL, MSFT, JNJ)"
+            placeholder="Ticker symbol — ex: AAPL, MSFT, MC.PA"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKey}
           />
           <button className="btn btn-primary" onClick={addStock} disabled={loading}>
             {loading ? <div className="spinner" /> : null}
-            {loading ? "Chargement..." : "+ Ajouter"}
+            {loading ? "Chargement..." : "Ajouter"}
           </button>
         </div>
         {error && <p className="dash-error">{error}</p>}
@@ -75,7 +71,7 @@ export default function Dashboard() {
 
       {ranked.filter((s) => s.assumptions?.base).length > 1 && (
         <div className="ranking-banner fade-in">
-          <p className="section-label">🏆 Ranking · Scénario Base (avec dividendes réinvestis)</p>
+          <p className="section-label">Ranking — Scénario Base (avec dividendes)</p>
           <div className="ranking-list">
             {ranked.filter((s) => s.assumptions?.base).map((s, i) => (
               <div key={s.symbol} className="ranking-item">
@@ -93,7 +89,6 @@ export default function Dashboard() {
 
       {watchlist.length === 0 && !loading && (
         <div className="empty-state">
-          <div className="empty-icon">📊</div>
           <h2>Ta watchlist est vide</h2>
           <p>Ajoute un premier ticker pour commencer l'analyse fondamentale.</p>
           <div className="empty-examples">

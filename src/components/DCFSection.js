@@ -39,6 +39,10 @@ const InputRow = ({ label, value, onChange, isPercent }) => (
 
 export default function DCFSection({ stock, onUpdate }) {
   const s = stock;
+
+  // Source indicator: does the base scenario use real analyst data?
+  const hasAnalystData = s.analystEpsGrowth != null;
+
   const def = {
     years: 5,
     bear: {
@@ -73,20 +77,26 @@ export default function DCFSection({ stock, onUpdate }) {
 
   return (
     <div className="dcf-section">
+      {/* Ancres */}
       <div className="dcf-anchors">
-        <p className="section-label">Ancres historiques</p>
+        <div className="dcf-anchors-header">
+          <p className="section-label" style={{ marginBottom: 0 }}>Ancres historiques</p>
+          <span className={`source-tag ${hasAnalystData ? "green" : "orange"}`}>
+            {hasAnalystData ? "Consensus analystes disponible" : "Pas de consensus — fallback CAGR historique"}
+          </span>
+        </div>
         <div className="anchor-chips">
           {[
-            { label: "BPA actuel", val: `$${num(s.epsCurrent)}` },
-            { label: "BPA CAGR 5a", val: pct(s.epsGrowth) },
-            { label: "BPA analystes", val: pct(s.analystEpsGrowth) },
-            { label: "PER actuel", val: `${num(s.peCurrent, 1)}x` },
-            { label: "PER moyen 5a", val: `${num(s.peHistorical, 1)}x` },
-            { label: "Div./action", val: `$${num(s.dividendPerShare)}` },
-            { label: "Div. CAGR", val: pct(s.divGrowth) },
-            { label: "Prix actuel", val: `$${num(s.price)}` },
+            { label: "BPA actuel",      val: `$${num(s.epsCurrent)}` },
+            { label: "BPA CAGR 5a",     val: pct(s.epsGrowth) },
+            { label: "BPA analystes",   val: s.analystEpsGrowth != null ? pct(s.analystEpsGrowth) : "N/A", highlight: hasAnalystData },
+            { label: "PER actuel",      val: `${num(s.peCurrent, 1)}x` },
+            { label: "PER moyen 5a",    val: `${num(s.peHistorical, 1)}x` },
+            { label: "Div./action",     val: `$${num(s.dividendPerShare)}` },
+            { label: "Div. CAGR",       val: pct(s.divGrowth) },
+            { label: "Prix actuel",     val: `$${num(s.price)}` },
           ].map((a) => (
-            <div key={a.label} className="anchor-chip">
+            <div key={a.label} className={`anchor-chip ${a.highlight ? "highlight" : ""}`}>
               <span className="ac-label">{a.label}</span>
               <span className="ac-value">{a.val}</span>
             </div>
@@ -94,6 +104,7 @@ export default function DCFSection({ stock, onUpdate }) {
         </div>
       </div>
 
+      {/* Horizon */}
       <div className="dcf-horizon">
         <label className="input-label">Horizon</label>
         <div className="horizon-btns">
@@ -105,24 +116,30 @@ export default function DCFSection({ stock, onUpdate }) {
         </div>
       </div>
 
+      {/* Grid 3 scénarios */}
       <div className="dcf-grid">
         {[
-          { key: "bear", label: "🐻 Bear", color: "red" },
-          { key: "base", label: "📊 Base (analystes)", color: "blue" },
-          { key: "bull", label: "🚀 Bull", color: "green" },
+          { key: "bear", label: "Bear",                     color: "red"  },
+          { key: "base", label: "Base — Consensus analystes", color: "blue" },
+          { key: "bull", label: "Bull",                     color: "green"},
         ].map(({ key, label, color }) => (
           <div key={key} className="dcf-col">
             <p className={`scenario-header ${color}`}>{label}</p>
-            <InputRow label="Croissance BPA" value={assum[key].epsGrowth} onChange={(v) => update(key, "epsGrowth", v)} isPercent />
-            <InputRow label="PER de sortie" value={assum[key].peExit} onChange={(v) => update(key, "peExit", v)} isPercent={false} />
+            <InputRow label="Croissance BPA"      value={assum[key].epsGrowth}    onChange={(v) => update(key, "epsGrowth", v)}    isPercent />
+            <InputRow label="PER de sortie"       value={assum[key].peExit}       onChange={(v) => update(key, "peExit", v)}       isPercent={false} />
             <InputRow label="Croissance dividende" value={assum[key].divGrowthRate} onChange={(v) => update(key, "divGrowthRate", v)} isPercent />
-            <ScenarioCard label={label} result={key === "bear" ? bearResult : key === "base" ? baseResult : bullResult} color={color} years={assum.years} />
+            <ScenarioCard
+              label={label}
+              result={key === "bear" ? bearResult : key === "base" ? baseResult : bullResult}
+              color={color}
+              years={assum.years}
+            />
           </div>
         ))}
       </div>
 
       <p className="dcf-disclaimer">
-        ⚠️ Ces projections reposent sur tes hypothèses. Investis seulement si le scénario Bear dépasse ton seuil minimum (ex: 8%/an).
+        Ces projections reposent sur tes hypothèses. N'investis que si le scénario Bear dépasse ton seuil minimum (ex : 8%/an).
       </p>
     </div>
   );
