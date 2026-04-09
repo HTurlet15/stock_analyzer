@@ -1,6 +1,6 @@
 export const DEFAULT_THRESHOLDS = {
   revenueGrowthGood: 0.10, revenueGrowthOk: 0.05,
-  netMarginGood:     0.20, netMarginOk:     0.10,
+  netMarginGood:     0.20, netMarginOk:     0.15, // MOAT section: >15% = pricing power signal
   epsGrowthGood:     0.10, epsGrowthOk:     0.05,
   fcfGrowthGood:     0.10, fcfGrowthOk:     0.05,
   roicGood:          0.20, roicOk:          0.15,
