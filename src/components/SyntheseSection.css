@@ -44,6 +44,18 @@
 /* DCF note */
 .syn-dcf-note { font-size: 11px; color: var(--text-dim); line-height: 1.5; margin-top: 4px; }
 
+/* Score detail */
+.score-detail-btn { margin-left: auto; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); border-radius: 6px; padding: 5px 10px; font-family: 'Inter', sans-serif; font-size: 11px; cursor: pointer; color: inherit; white-space: nowrap; }
+.score-detail-btn:hover { background: rgba(255,255,255,0.25); }
+.score-detail { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+.score-detail-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.sd-criterion { display: flex; align-items: center; gap: 8px; }
+.sd-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.sd-dot.green { background: var(--green); }
+.sd-dot.red   { background: var(--red); }
+.sd-label { font-size: 12px; color: var(--text); flex: 1; }
+.sd-hint { font-size: 10px; color: var(--text-dim); }
+
 /* Key checks */
 .syn-checks { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
 .syn-check { display: flex; align-items: center; gap: 10px; }

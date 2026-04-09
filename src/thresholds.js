@@ -8,7 +8,7 @@ export const DEFAULT_THRESHOLDS = {
   debtEbitdaGood:    2,    debtEbitdaOk:    3,
   payoutRatioGood:   0.40, payoutRatioOk:   0.60,
   divFcfGood:        0.50, divFcfOk:        0.70,
-  perGood:           20,   perOk:           30,
+  perGood:           25,   perOk:           30,
   analystEpsGood:    0.10, analystEpsOk:    0.05,
   analystRevGood:    0.08, analystRevOk:    0.05,
 };
@@ -27,6 +27,27 @@ export function loadThresholds() {
 
 export function saveThresholds(t) {
   localStorage.setItem(LS_KEY, JSON.stringify(t));
+}
+
+// Unified score calculation — used in both StockCard header and SyntheseSection
+export function computeScore(s, t) {
+  const checks = [
+    s.revenueGrowth != null && s.revenueGrowth >= t.revenueGrowthOk,
+    s.netMargin     != null && s.netMargin     >= t.netMarginOk,
+    s.epsGrowth     != null && s.epsGrowth     >= t.epsGrowthOk,
+    s.equity        != null && s.equity        > 0,
+    s.netDebtDecreasing === true,
+    s.fcfGrowth     != null && s.fcfGrowth     >= t.fcfGrowthOk,
+    s.debtToEbitda  != null && s.debtToEbitda  <= t.debtEbitdaOk,
+    s.roic          != null && s.roic          >= t.roicOk,
+    s.roe           != null && s.roe           >= t.roeOk,
+    s.sharesDecreasing === true,
+    s.payoutRatio   != null && s.payoutRatio   <= t.payoutRatioOk,
+    s.divToFcf      != null && s.divToFcf      <= t.divFcfOk,
+    s.capexGrowing  === true,
+  ];
+  const passed = checks.filter(Boolean).length;
+  return Math.round((passed / checks.length) * 100);
 }
 
 export function scoreColor(value, good, ok, inverse = false) {

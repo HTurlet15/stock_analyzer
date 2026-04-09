@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { pct, num, money, colorFromThresholds } from "../utils";
-import { scoreColor } from "../thresholds";
+import { scoreColor, computeScore } from "../thresholds";
 import MoatSection from "./MoatSection";
 import ManagementSection from "./ManagementSection";
 import DCFSection from "./DCFSection";
@@ -202,12 +202,7 @@ export default function StockCard({ stock, thresholds, onRemove, onUpdate }) {
   const s = stock;
   const raw = s.raw || {};
 
-  const checks = [
-    s.revenueGrowth > 0.10, s.netMargin > 0.20, s.epsGrowth > 0, s.equity > 0,
-    s.netDebtDecreasing, s.fcfGrowth > 0.10, s.debtToEbitda < 2, s.roic > 0.20,
-    s.roe > 0.15, s.sharesDecreasing, s.payoutRatio < 0.40, s.divToFcf < 0.50, s.capexGrowing,
-  ].filter(Boolean).length;
-  const healthScore = Math.round((checks / 13) * 100);
+  const healthScore = thresholds ? computeScore(s, thresholds) : 0;
   const healthColor = healthScore >= 70 ? "green" : healthScore >= 45 ? "orange" : "red";
 
   // Key check details
@@ -355,7 +350,7 @@ export default function StockCard({ stock, thresholds, onRemove, onUpdate }) {
                       <span className="sr-value dim">{num(s.peHistorical, 1)}x</span>
                     </div>
                     <div className="simple-row">
-                      <span className="sr-label">Forward PER (12m)</span>
+                      <span className="sr-label">Forward PER{s.forwardPEYear ? ` (${s.forwardPEYear})` : ""}</span>
                       <span className={`sr-value ${scoreColor(s.forwardPE, thresholds?.perGood ?? 20, thresholds?.perOk ?? 30, true)}`}>{num(s.forwardPE, 1)}x</span>
                     </div>
                     <div className="simple-row">

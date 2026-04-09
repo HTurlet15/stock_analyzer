@@ -8,8 +8,10 @@ export const money = (v) => {
 };
 
 export const cagr = (start, end, years) => {
-  if (!start || !end || years <= 0 || start <= 0) return null;
-  return Math.pow(end / start, 1 / years) - 1;
+  if (start == null || end == null || years <= 0) return null;
+  if (start <= 0 || end <= 0) return null; // can't compute meaningful CAGR with negatives
+  const r = Math.pow(end / start, 1 / years) - 1;
+  return isFinite(r) ? r : null;
 };
 
 export const colorFromThresholds = (value, greenThreshold, orangeThreshold, inverse = false) => {
@@ -84,12 +86,16 @@ export const processData = (raw) => {
   const fwdEps = est[0]?.estimatedEpsAvg;
   const currentPrice = q?.price;
   const forwardPE = fwdEps && currentPrice ? currentPrice / fwdEps : null;
-  const estEpsFirst = est[0]?.estimatedEpsAvg;
-  const estEpsLast = est[est.length - 1]?.estimatedEpsAvg;
-  const estYears = est.length > 1 ? est.length - 1 : 1;
+  const forwardPEYear = est[0]?.date ? est[0].date.slice(0, 4) : null;
+
+  // Cap analyst estimates at 3 years (beyond that, too uncertain)
+  const estCapped = est.slice(0, 3);
+  const estEpsFirst = estCapped[0]?.estimatedEpsAvg;
+  const estEpsLast = estCapped[estCapped.length - 1]?.estimatedEpsAvg;
+  const estYears = estCapped.length > 1 ? estCapped.length - 1 : 1;
   const analystEpsGrowth = cagr(estEpsFirst, estEpsLast, estYears);
-  const estRevFirst = est[0]?.estimatedRevenueAvg;
-  const estRevLast = est[est.length - 1]?.estimatedRevenueAvg;
+  const estRevFirst = estCapped[0]?.estimatedRevenueAvg;
+  const estRevLast = estCapped[estCapped.length - 1]?.estimatedRevenueAvg;
   const analystRevGrowth = cagr(estRevFirst, estRevLast, estYears);
 
   const dividendYield = q?.dividendYield;
@@ -119,7 +125,7 @@ export const processData = (raw) => {
     debtToEbitda, roic, roe, sharesCurrent, sharesDecreasing,
     payoutRatio, divToFcf, capex, capexGrowing,
     profitsVsDebt, cashFollowsEarnings, dividendCoveredByEarnings,
-    peCurrent, peHistorical, forwardPE, analystEpsGrowth, analystRevGrowth,
+    peCurrent, peHistorical, forwardPE, forwardPEYear, analystEpsGrowth, analystRevGrowth,
     dividendYield, dividendPerShare, divGrowth,
     inc, cf, met, rat, est, divs,
   };

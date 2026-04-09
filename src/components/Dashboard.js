@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { fetchAllData } from "../api";
-import { processData } from "../utils";
+import { processData, calculateDCF } from "../utils";
 import { loadThresholds, saveThresholds, DEFAULT_THRESHOLDS, THRESHOLD_CONFIGS } from "../thresholds";
 import StockCard from "./StockCard";
 import "./Dashboard.css";
@@ -109,7 +109,23 @@ export default function Dashboard() {
       const raw = await fetchAllData(symbol);
       const processed = processData(raw);
       if (!processed.name) throw new Error("Entreprise introuvable.");
-      setWatchlist((prev) => [...prev, { ...processed, raw, moat: null, management: null, assumptions: null }]);
+
+      // Auto-compute DCF base scenario so header badge shows immediately
+      const epsG = processed.analystEpsGrowth ?? processed.epsGrowth ?? 0.08;
+      const peEx = processed.peHistorical ?? processed.peCurrent ?? 20;
+      const divG = processed.divGrowth ?? 0.05;
+      const dcfAssumptions = {
+        years: 5,
+        bear: { epsGrowth: Math.max(epsG * 0.6, 0.01), peExit: peEx * 0.85, divGrowthRate: divG * 0.6 },
+        base: { epsGrowth: epsG, peExit: peEx, divGrowthRate: divG },
+        bull: { epsGrowth: epsG * 1.4, peExit: peEx * 1.2, divGrowthRate: divG * 1.4 },
+      };
+      const assumptions = {
+        bear: calculateDCF(processed, dcfAssumptions.bear, 5),
+        base: calculateDCF(processed, dcfAssumptions.base, 5),
+        bull: calculateDCF(processed, dcfAssumptions.bull, 5),
+      };
+      setWatchlist((prev) => [...prev, { ...processed, raw, moat: null, management: null, assumptions, dcfAssumptions }]);
       setInput("");
     } catch (e) {
       setError(e.message || "Erreur lors du chargement.");

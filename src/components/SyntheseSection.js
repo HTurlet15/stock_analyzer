@@ -1,5 +1,6 @@
-import { pct, num, money, calculateDCF } from "../utils";
-import { scoreColor } from "../thresholds";
+import { useState } from "react";
+import { pct, num, calculateDCF } from "../utils";
+import { scoreColor, computeScore } from "../thresholds";
 import "./SyntheseSection.css";
 
 const VERDICT_CONFIG = [
@@ -30,27 +31,28 @@ function CheckBadge({ passed, label }) {
   );
 }
 
+const SCORE_CRITERIA = [
+  { label: "Croissance CA",      get: (s, t) => s.revenueGrowth != null && s.revenueGrowth >= t.revenueGrowthOk, hint: (t) => `≥ ${pct(t.revenueGrowthOk)}/an` },
+  { label: "Marge nette",        get: (s, t) => s.netMargin     != null && s.netMargin     >= t.netMarginOk,     hint: (t) => `≥ ${pct(t.netMarginOk)}` },
+  { label: "Croissance BPA",     get: (s, t) => s.epsGrowth     != null && s.epsGrowth     >= t.epsGrowthOk,     hint: (t) => `≥ ${pct(t.epsGrowthOk)}/an` },
+  { label: "Fonds propres > 0",  get: (s)    => s.equity        != null && s.equity        > 0,                  hint: () => "> 0" },
+  { label: "Dette nette décroît",get: (s)    => s.netDebtDecreasing === true,                                    hint: () => "tendance baissière" },
+  { label: "Croissance FCF",     get: (s, t) => s.fcfGrowth     != null && s.fcfGrowth     >= t.fcfGrowthOk,     hint: (t) => `≥ ${pct(t.fcfGrowthOk)}/an` },
+  { label: "Dette/EBITDA",       get: (s, t) => s.debtToEbitda  != null && s.debtToEbitda  <= t.debtEbitdaOk,    hint: (t) => `≤ ${t.debtEbitdaOk}x` },
+  { label: "ROIC",               get: (s, t) => s.roic          != null && s.roic          >= t.roicOk,          hint: (t) => `≥ ${pct(t.roicOk)}` },
+  { label: "ROE",                get: (s, t) => s.roe           != null && s.roe           >= t.roeOk,           hint: (t) => `≥ ${pct(t.roeOk)}` },
+  { label: "Actions décroissent",get: (s)    => s.sharesDecreasing === true,                                     hint: () => "stable ou en baisse" },
+  { label: "Payout Ratio",       get: (s, t) => s.payoutRatio   != null && s.payoutRatio   <= t.payoutRatioOk,   hint: (t) => `≤ ${pct(t.payoutRatioOk)}` },
+  { label: "Div/FCF",            get: (s, t) => s.divToFcf      != null && s.divToFcf      <= t.divFcfOk,        hint: (t) => `≤ ${pct(t.divFcfOk)}` },
+  { label: "Capex en hausse",    get: (s)    => s.capexGrowing  === true,                                        hint: () => "investit dans sa croissance" },
+];
+
 export default function SyntheseSection({ stock, thresholds: t }) {
   const s = stock;
+  const [showScoreDetail, setShowScoreDetail] = useState(false);
 
-  // ── Score (same logic as healthScore but threshold-aware) ─────────────────
-  const checks = [
-    s.revenueGrowth != null && s.revenueGrowth >= t.revenueGrowthOk,
-    s.netMargin     != null && s.netMargin     >= t.netMarginOk,
-    s.epsGrowth     != null && s.epsGrowth     >= t.epsGrowthOk,
-    s.equity        != null && s.equity        > 0,
-    s.netDebtDecreasing === true,
-    s.fcfGrowth     != null && s.fcfGrowth     >= t.fcfGrowthOk,
-    s.debtToEbitda  != null && s.debtToEbitda  <= t.debtEbitdaOk,
-    s.roic          != null && s.roic          >= t.roicOk,
-    s.roe           != null && s.roe           >= t.roeOk,
-    s.sharesDecreasing === true,
-    s.payoutRatio   != null && s.payoutRatio   <= t.payoutRatioOk,
-    s.divToFcf      != null && s.divToFcf      <= t.divFcfOk,
-    s.peCurrent     != null && s.peCurrent     <= t.perOk,
-  ];
-  const passed = checks.filter(Boolean).length;
-  const score  = Math.round((passed / checks.length) * 100);
+  // ── Score ─────────────────────────────────────────────────────────────────
+  const score  = computeScore(s, t);
   const verdict = VERDICT_CONFIG.find(v => score >= v.min);
 
   // ── Quick DCF (base scenario) ─────────────────────────────────────────────
@@ -79,7 +81,29 @@ export default function SyntheseSection({ stock, thresholds: t }) {
           <span className="verdict-label">{verdict.label}</span>
           <span className="verdict-msg">{verdict.msg}</span>
         </div>
+        <button className="score-detail-btn" onClick={() => setShowScoreDetail(v => !v)}>
+          {showScoreDetail ? "Masquer le détail" : "Voir le détail"}
+        </button>
       </div>
+
+      {/* ── Score detail ───────────────────────────────────────────────────── */}
+      {showScoreDetail && (
+        <div className="score-detail">
+          <p className="syn-col-title" style={{ marginBottom: 8 }}>Détail du score — 13 critères</p>
+          <div className="score-detail-grid">
+            {SCORE_CRITERIA.map(c => {
+              const passed = c.get(s, t);
+              return (
+                <div key={c.label} className="sd-criterion">
+                  <span className={`sd-dot ${passed ? "green" : "red"}`} />
+                  <span className="sd-label">{c.label}</span>
+                  <span className="sd-hint">{c.hint(t)}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ── Main grid ──────────────────────────────────────────────────────── */}
       <div className="syn-grid">
@@ -154,7 +178,7 @@ export default function SyntheseSection({ stock, thresholds: t }) {
             color="dim"
           />
           <MetricRow
-            label="Forward PER"
+            label={`Forward PER${s.forwardPEYear ? ` (${s.forwardPEYear})` : ""}`}
             value={s.forwardPE != null ? `${num(s.forwardPE, 1)}x` : "—"}
             color={scoreColor(s.forwardPE, t.perGood, t.perOk, true)}
           />
