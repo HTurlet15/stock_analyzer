@@ -2,42 +2,41 @@
 
 .dcf-anchors { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
 .dcf-anchors-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
-
 .source-tag { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 4px; letter-spacing: 0.04em; }
-.source-tag.green  { background: var(--green-dim);  color: var(--green);  border: 1px solid rgba(34,197,94,.2); }
-.source-tag.orange { background: var(--orange-dim); color: var(--orange); border: 1px solid rgba(245,158,11,.2); }
+.source-tag.green  { background: var(--green-dim);  color: var(--green);  border: 1px solid rgba(13,122,60,.18); }
+.source-tag.orange { background: var(--orange-dim); color: var(--orange); border: 1px solid rgba(146,87,10,.18); }
 
 .anchor-chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.anchor-chip { display: flex; flex-direction: column; gap: 3px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 8px 13px; transition: border-color 0.15s; }
-.anchor-chip.highlight { border-color: rgba(34,197,94,.3); background: var(--green-dim); }
+.anchor-chip { display: flex; flex-direction: column; gap: 3px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 8px 13px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+.anchor-chip.highlight { border-color: rgba(13,122,60,.25); background: var(--green-dim); }
 .ac-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
-.ac-value { font-size: 13px; font-weight: 500; color: var(--text); font-variant-numeric: tabular-nums; }
+.ac-value { font-size: 13px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
 .anchor-chip.highlight .ac-value { color: var(--green); }
 
 .dcf-horizon { display: flex; align-items: center; gap: 16px; }
 .horizon-btns { display: flex; gap: 6px; }
-.horizon-btn { padding: 6px 13px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); font-family: 'Inter', sans-serif; font-size: 12px; cursor: pointer; transition: all 0.15s; }
-.horizon-btn:hover { border-color: var(--accent); color: var(--accent); }
-.horizon-btn.active { background: var(--accent-dim); border-color: rgba(99,102,241,.3); color: var(--accent); }
+.horizon-btn { padding: 6px 13px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-muted); font-family: 'Inter', sans-serif; font-size: 12px; cursor: pointer; transition: all 0.15s; }
+.horizon-btn:hover { border-color: var(--border-bright); color: var(--text); }
+.horizon-btn.active { background: var(--accent-dim); border-color: rgba(79,70,229,.3); color: var(--accent); font-weight: 600; }
 
 .dcf-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 @media (max-width: 900px) { .dcf-grid { grid-template-columns: 1fr; } }
 .dcf-col { display: flex; flex-direction: column; gap: 8px; }
 
 .scenario-header { font-size: 12px; font-weight: 600; padding: 7px 12px; border-radius: 7px; margin-bottom: 4px; }
-.scenario-header.red   { background: var(--red-dim);  color: var(--red); }
-.scenario-header.blue  { background: var(--blue-dim); color: var(--blue); }
+.scenario-header.red   { background: var(--red-dim);   color: var(--red); }
+.scenario-header.blue  { background: var(--blue-dim);  color: var(--blue); }
 .scenario-header.green { background: var(--green-dim); color: var(--green); }
 
-.input-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(42,42,42,.6); }
-.input-wrap { display: flex; align-items: center; gap: 4px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; }
+.input-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.input-wrap { display: flex; align-items: center; gap: 4px; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; }
 .dcf-input { background: transparent; border: none; outline: none; font-family: 'Inter', sans-serif; font-size: 13px; color: var(--text); width: 52px; text-align: right; font-variant-numeric: tabular-nums; }
 .input-unit { font-size: 12px; color: var(--text-muted); }
 
 .scenario-card { border-radius: 10px; padding: 16px; margin-top: 8px; border: 1px solid transparent; }
-.scenario-card.red   { background: var(--red-dim);   border-color: rgba(239,68,68,.2); }
-.scenario-card.blue  { background: var(--blue-dim);  border-color: rgba(59,130,246,.2); }
-.scenario-card.green { background: var(--green-dim); border-color: rgba(34,197,94,.2); }
+.scenario-card.red   { background: var(--red-dim);   border-color: rgba(183,28,28,.15); }
+.scenario-card.blue  { background: var(--blue-dim);  border-color: rgba(29,78,216,.15); }
+.scenario-card.green { background: var(--green-dim); border-color: rgba(13,122,60,.15); }
 
 .scenario-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 8px; }
 .scenario-main { display: flex; align-items: baseline; gap: 4px; margin-bottom: 12px; }
@@ -48,7 +47,7 @@
 .scenario-period { font-size: 12px; color: var(--text-muted); }
 
 .scenario-details { display: flex; flex-direction: column; gap: 4px; }
-.sd-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; padding: 3px 0; border-bottom: 1px solid rgba(42,42,42,.4); }
+.sd-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; padding: 3px 0; border-bottom: 1px solid var(--border); }
 .sd-row.total { font-weight: 600; color: var(--text); border-bottom: none; padding-top: 6px; }
 
 .dcf-disclaimer { font-size: 11px; color: var(--text-muted); background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; line-height: 1.6; }

@@ -94,11 +94,22 @@ export const processData = (raw) => {
 
   const dividendYield = q?.dividendYield;
   const dividendPerShare = q?.lastDiv;
-  const recentDivs = divs.slice(0, 8);
-  const oldDivs = divs.slice(-8);
-  const avgRecentDiv = recentDivs.length ? recentDivs.reduce((s, d) => s + d.dividend, 0) / recentDivs.length : null;
-  const avgOldDiv = oldDivs.length ? oldDivs.reduce((s, d) => s + d.dividend, 0) / oldDivs.length : null;
-  const divGrowth = cagr(avgOldDiv, avgRecentDiv, Math.max(divs.length / 4, 1));
+
+  // Annualise les dividendes par année calendaire (indépendamment de la fréquence de paiement)
+  // et exclut l'année en cours (potentiellement incomplète)
+  const currentYear = new Date().getFullYear().toString();
+  const annualDivMap = {};
+  divs.forEach(d => {
+    const year = d.date?.slice(0, 4);
+    if (year && year < currentYear) {
+      annualDivMap[year] = (annualDivMap[year] || 0) + (d.dividend || 0);
+    }
+  });
+  // Max 10 ans pour un CAGR pertinent (évite l'effet "démarrage de dividende")
+  const annualDivList = Object.keys(annualDivMap).sort().map(y => annualDivMap[y]).slice(-10);
+  const divGrowth = annualDivList.length >= 3
+    ? cagr(annualDivList[0], annualDivList[annualDivList.length - 1], annualDivList.length - 1)
+    : null;
 
   return {
     symbol: q?.symbol, name: p?.companyName, sector: p?.sector, industry: p?.industry,

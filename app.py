@@ -62,8 +62,11 @@ def get_stock(symbol):
         "pe":            clean(info.get("trailingPE")),
         "forwardPE":     clean(info.get("forwardPE")),
         "marketCap":     clean(info.get("marketCap")),
-        "dividendYield": clean(info.get("dividendYield")),
-        "lastDiv":       clean(info.get("lastDividendValue")),
+        # trailingAnnualDividendYield = dividende des 12 derniers mois / prix (fiable)
+        # fallback sur dividendYield si absent
+        "dividendYield": clean(info.get("trailingAnnualDividendYield") or info.get("dividendYield")),
+        # trailingAnnualDividendRate = somme des dividendes sur 12 mois (= dividende annuel par action)
+        "lastDiv":       clean(info.get("trailingAnnualDividendRate") or info.get("lastDividendValue")),
         "currency":      info.get("currency"),
     }]
 

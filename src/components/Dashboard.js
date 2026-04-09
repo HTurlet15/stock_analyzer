@@ -1,14 +1,100 @@
 import { useState } from "react";
 import { fetchAllData } from "../api";
 import { processData } from "../utils";
+import { loadThresholds, saveThresholds, DEFAULT_THRESHOLDS, THRESHOLD_CONFIGS } from "../thresholds";
 import StockCard from "./StockCard";
 import "./Dashboard.css";
+
+// ── Settings panel ────────────────────────────────────────────────────────────
+
+function SettingsPanel({ thresholds, onChange, onClose }) {
+  const fmt = (val, isPct) => isPct ? (val * 100).toFixed(1) : String(val);
+  const parse = (str, isPct) => {
+    const n = parseFloat(str);
+    if (isNaN(n)) return null;
+    return isPct ? n / 100 : n;
+  };
+
+  const handleChange = (key, raw, isPct) => {
+    const val = parse(raw, isPct);
+    if (val === null) return;
+    const updated = { ...thresholds, [key + "Good"]: val };
+    // Keep ok slightly worse than good if not specified separately
+    onChange(updated);
+  };
+
+  const handleOkChange = (key, raw, isPct) => {
+    const val = parse(raw, isPct);
+    if (val === null) return;
+    onChange({ ...thresholds, [key + "Ok"]: val });
+  };
+
+  return (
+    <div className="settings-panel">
+      <div className="settings-header">
+        <span className="settings-title">Seuils personnalisés</span>
+        <button className="settings-close" onClick={onClose}>✕</button>
+      </div>
+      <p className="settings-desc">Ces seuils colorient les ratios en vert / orange / rouge dans l'analyse.</p>
+      <div className="settings-body">
+        {THRESHOLD_CONFIGS.map(group => (
+          <div key={group.group} className="settings-group">
+            <p className="settings-group-title">{group.group}</p>
+            {group.fields.map(field => (
+              <div key={field.key} className="settings-row">
+                <span className="settings-row-label">{field.label}</span>
+                <div className="settings-inputs">
+                  <label className="settings-input-label">
+                    <span className={`threshold-dot green`} />
+                    <input
+                      type="number"
+                      className="settings-input"
+                      step={field.pct ? "0.1" : "0.5"}
+                      defaultValue={fmt(thresholds[field.key + "Good"], field.pct)}
+                      onBlur={e => handleChange(field.key, e.target.value, field.pct)}
+                    />
+                    {field.pct ? "%" : "x"}
+                  </label>
+                  <label className="settings-input-label">
+                    <span className={`threshold-dot orange`} />
+                    <input
+                      type="number"
+                      className="settings-input"
+                      step={field.pct ? "0.1" : "0.5"}
+                      defaultValue={fmt(thresholds[field.key + "Ok"], field.pct)}
+                      onBlur={e => handleOkChange(field.key, e.target.value, field.pct)}
+                    />
+                    {field.pct ? "%" : "x"}
+                  </label>
+                </div>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+      <div className="settings-footer">
+        <button className="btn btn-ghost" onClick={() => onChange({ ...DEFAULT_THRESHOLDS })}>
+          Réinitialiser
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
   const [watchlist, setWatchlist] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [thresholds, setThresholds] = useState(() => loadThresholds());
+  const [showSettings, setShowSettings] = useState(false);
+
+  const handleThresholdsChange = (t) => {
+    setThresholds(t);
+    saveThresholds(t);
+  };
 
   const addStock = async () => {
     const symbol = input.trim().toUpperCase();
@@ -48,8 +134,26 @@ export default function Dashboard() {
   return (
     <div className="dashboard">
       <header className="dash-header">
-        <div className="dash-logo">StockAnalyzer</div>
-        <p className="dash-subtitle">Analyse fondamentale · DCF · MOAT · Ranking</p>
+        <div className="dash-header-top">
+          <div>
+            <div className="dash-logo">StockAnalyzer</div>
+            <p className="dash-subtitle">Analyse fondamentale · DCF · MOAT · Ranking</p>
+          </div>
+          <button
+            className={`btn-settings ${showSettings ? "active" : ""}`}
+            onClick={() => setShowSettings(v => !v)}
+            title="Paramètres des seuils"
+          >
+            Seuils
+          </button>
+        </div>
+        {showSettings && (
+          <SettingsPanel
+            thresholds={thresholds}
+            onChange={handleThresholdsChange}
+            onClose={() => setShowSettings(false)}
+          />
+        )}
       </header>
 
       <div className="dash-search-wrap">
@@ -101,7 +205,7 @@ export default function Dashboard() {
 
       <div className="stock-list">
         {watchlist.map((stock) => (
-          <StockCard key={stock.symbol} stock={stock} onRemove={removeStock} onUpdate={updateStock} />
+          <StockCard key={stock.symbol} stock={stock} thresholds={thresholds} onRemove={removeStock} onUpdate={updateStock} />
         ))}
       </div>
     </div>

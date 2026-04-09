@@ -1,60 +1,68 @@
 /* ── Card shell ─────────────────────────────────────────────────────────── */
-.stock-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; transition: border-color 0.15s; }
-.stock-card:hover { border-color: var(--border-bright); }
+.stock-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.06); transition: box-shadow 0.15s, border-color 0.15s; }
+.stock-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); border-color: var(--border-bright); }
 
 /* ── Header ─────────────────────────────────────────────────────────────── */
 .sc-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; cursor: pointer; user-select: none; gap: 16px; }
-.sc-header:hover { background: rgba(255,255,255,0.02); }
+.sc-header:hover { background: var(--bg-elevated); }
 .sc-header-left { display: flex; align-items: center; gap: 16px; min-width: 0; }
-.sc-symbol { font-size: 16px; font-weight: 700; letter-spacing: 0.04em; color: var(--accent); min-width: 56px; }
+.sc-symbol { font-size: 15px; font-weight: 700; letter-spacing: 0.04em; color: var(--accent); min-width: 56px; }
 .sc-name-wrap { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .sc-name { font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sc-sector { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
 .sc-header-right { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
 .sc-price { display: flex; flex-direction: column; align-items: flex-end; }
-.price-val { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.price-val { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); }
 .price-label { font-size: 10px; color: var(--text-muted); }
 
 .health-badge { display: flex; align-items: baseline; gap: 1px; padding: 5px 10px; border-radius: 7px; }
 .health-badge.green  { background: var(--green-dim); }
 .health-badge.orange { background: var(--orange-dim); }
 .health-badge.red    { background: var(--red-dim); }
-.health-score { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.health-score { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .health-badge.green  .health-score { color: var(--green); }
 .health-badge.orange .health-score { color: var(--orange); }
 .health-badge.red    .health-score { color: var(--red); }
 .health-label { font-size: 10px; color: var(--text-muted); }
 
-.return-badge { display: flex; flex-direction: column; align-items: center; background: var(--accent-dim); border: 1px solid rgba(99,102,241,.2); border-radius: 7px; padding: 5px 10px; }
+.return-badge { display: flex; flex-direction: column; align-items: center; background: var(--accent-dim); border: 1px solid rgba(79,70,229,.2); border-radius: 7px; padding: 5px 10px; }
 .return-val { font-size: 14px; font-weight: 600; color: var(--accent); font-variant-numeric: tabular-nums; }
 .return-label { font-size: 10px; color: var(--text-muted); }
 
-.btn-remove { background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 5px 7px; border-radius: 5px; font-size: 13px; transition: all 0.15s; line-height: 1; }
+.btn-remove { background: transparent; border: none; color: var(--text-dim); cursor: pointer; padding: 5px 7px; border-radius: 5px; font-size: 12px; transition: all 0.15s; line-height: 1; }
 .btn-remove:hover { color: var(--red); background: var(--red-dim); }
 .chevron { color: var(--text-dim); font-size: 11px; }
 
 /* ── Tabs ───────────────────────────────────────────────────────────────── */
 .sc-body { border-top: 1px solid var(--border); }
-.sc-tabs { display: flex; gap: 2px; padding: 10px 16px; border-bottom: 1px solid var(--border); overflow-x: auto; }
+.sc-tabs { display: flex; gap: 2px; padding: 10px 16px; border-bottom: 1px solid var(--border); overflow-x: auto; background: var(--bg-elevated); }
 .tab-btn { padding: 7px 14px; border-radius: 7px; border: none; background: transparent; color: var(--text-muted); font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 500; cursor: pointer; white-space: nowrap; transition: all 0.15s; }
-.tab-btn:hover { color: var(--text); background: var(--bg-elevated); }
-.tab-btn.active { background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(99,102,241,.2); }
+.tab-btn:hover { color: var(--text); background: var(--bg-card); }
+.tab-btn.active { background: var(--bg-card); color: var(--accent); font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,0.07); }
 
 .tab-content { padding: 24px; }
+
+/* ── Period selector ────────────────────────────────────────────────────── */
+.period-selector { display: flex; align-items: center; gap: 6px; margin-bottom: 16px; }
+.period-selector-label { font-size: 11px; color: var(--text-muted); margin-right: 4px; }
+.period-btn { padding: 4px 11px; border-radius: 5px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+.period-btn:hover { border-color: var(--border-bright); color: var(--text); }
+.period-btn.active { background: var(--accent-dim); border-color: rgba(79,70,229,.3); color: var(--accent); font-weight: 600; }
 
 /* ── Financial Table ────────────────────────────────────────────────────── */
 .fin-table-wrap { overflow-x: auto; margin: 0 -24px; padding: 0 24px; }
 
-.fin-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 580px; }
+.fin-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 520px; }
 
-.fin-table thead th { padding: 0 12px 10px; font-size: 11px; font-weight: 500; color: var(--text-muted); text-align: right; white-space: nowrap; border-bottom: 1px solid var(--border); }
+.fin-table thead th { padding: 0 12px 10px; font-size: 11px; font-weight: 500; color: var(--text-muted); text-align: right; white-space: nowrap; border-bottom: 2px solid var(--border); }
 .fin-table thead th.ft-label { text-align: left; min-width: 175px; padding-left: 0; }
 .fin-table thead th.ft-trend { min-width: 140px; }
 
-.ft-section td { padding: 20px 12px 6px; font-size: 10px; font-weight: 600; letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-dim); border-bottom: none; }
+.ft-section td { padding: 18px 12px 5px; font-size: 10px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-dim); border-bottom: none; background: var(--bg-elevated); }
 .ft-section:first-child td { padding-top: 8px; }
 
 .ft-row td { padding: 9px 12px; border-bottom: 1px solid var(--border); text-align: right; font-variant-numeric: tabular-nums; font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.ft-row:hover td { background: var(--bg-elevated); }
 .ft-row:last-child td { border-bottom: none; }
 .ft-row td.ft-label { text-align: left; color: var(--text); font-size: 12px; font-weight: 400; padding-left: 0; }
 .ft-row td.ft-data  { color: var(--text); font-weight: 500; }
@@ -65,26 +73,26 @@
 .ft-row td.ft-trend.dim    { color: var(--text-dim); }
 
 /* ── Bottom grid (questions clés + dividendes) ──────────────────────────── */
-.bottom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-top: 28px; }
+.bottom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--border); }
 @media (max-width: 760px) { .bottom-grid { grid-template-columns: 1fr; } }
 
 /* ── Key checks ─────────────────────────────────────────────────────────── */
 .key-check { padding: 12px 0; border-bottom: 1px solid var(--border); }
 .key-check:last-child { border-bottom: none; }
 .kc-row { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
-.kc-badge { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 7px; border-radius: 4px; white-space: nowrap; flex-shrink: 0; }
-.kc-badge.green { background: var(--green-dim);  color: var(--green);  border: 1px solid rgba(34,197,94,.2); }
-.kc-badge.red   { background: var(--red-dim);    color: var(--red);    border: 1px solid rgba(239,68,68,.2); }
+.kc-badge { font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; padding: 2px 7px; border-radius: 4px; white-space: nowrap; flex-shrink: 0; }
+.kc-badge.green { background: var(--green-dim); color: var(--green); border: 1px solid rgba(13,122,60,.18); }
+.kc-badge.red   { background: var(--red-dim);   color: var(--red);   border: 1px solid rgba(183,28,28,.18); }
 .kc-badge.dim   { background: var(--bg-elevated); color: var(--text-dim); border: 1px solid var(--border); }
 .kc-label  { font-size: 13px; color: var(--text); font-weight: 500; }
-.kc-detail { font-size: 11px; color: var(--text-muted); padding-left: 54px; line-height: 1.5; }
+.kc-detail { font-size: 11px; color: var(--text-muted); padding-left: 54px; line-height: 1.6; margin-top: 1px; }
 
-/* ── Simple rows (dividendes, valorisation) ─────────────────────────────── */
+/* ── Simple rows ────────────────────────────────────────────────────────── */
 .simple-rows { display: flex; flex-direction: column; }
 .simple-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); }
 .simple-row:last-child { border-bottom: none; }
 .sr-label { font-size: 12px; color: var(--text-muted); }
-.sr-value { font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.sr-value { font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .sr-value.green  { color: var(--green); }
 .sr-value.orange { color: var(--orange); }
 .sr-value.red    { color: var(--red); }
@@ -96,7 +104,7 @@
 .health-bar-wrap.green  .health-bar-fill { background: var(--green); }
 .health-bar-wrap.orange .health-bar-fill { background: var(--orange); }
 .health-bar-wrap.red    .health-bar-fill { background: var(--red); }
-.health-pct { font-size: 12px; font-variant-numeric: tabular-nums; }
+.health-pct { font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .health-pct.green  { color: var(--green); }
 .health-pct.orange { color: var(--orange); }
 .health-pct.red    { color: var(--red); }
@@ -105,8 +113,7 @@
 .ratios-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
 @media (max-width: 900px) { .ratios-grid { grid-template-columns: 1fr; } }
 .ratios-col { display: flex; flex-direction: column; }
-
-.valuation-note { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 8px; padding: 16px; font-size: 12px; color: var(--text-muted); line-height: 1.6; }
+.valuation-note { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 8px; padding: 16px; font-size: 12px; color: var(--text-muted); line-height: 1.7; }
 .valuation-note strong { color: var(--text); }
 
 .empty-table { font-size: 13px; color: var(--text-muted); padding: 20px 0; }

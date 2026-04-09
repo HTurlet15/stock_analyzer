@@ -1,14 +1,16 @@
 import { useState } from "react";
 import { pct, num, money, colorFromThresholds } from "../utils";
+import { scoreColor } from "../thresholds";
 import MoatSection from "./MoatSection";
 import ManagementSection from "./ManagementSection";
 import DCFSection from "./DCFSection";
+import SyntheseSection from "./SyntheseSection";
 import "./StockCard.css";
 
 // ── Financial Table ──────────────────────────────────────────────────────────
 
-const FinancialTable = ({ raw }) => {
-  const LIMIT = 5;
+const FinancialTable = ({ raw, period }) => {
+  const LIMIT = period === "max" ? 20 : period;
   const inc = [...(raw.income   || [])].slice(0, LIMIT).reverse();
   const bal = [...(raw.balance  || [])].slice(0, LIMIT).reverse();
   const cf  = [...(raw.cashflow || [])].slice(0, LIMIT).reverse();
@@ -183,6 +185,7 @@ const KeyCheck = ({ label, passed, detail }) => (
 // ── Tabs ─────────────────────────────────────────────────────────────────────
 
 const TABS = [
+  { id: "synthese",    label: "Synthèse" },
   { id: "financials",  label: "Finances" },
   { id: "valuation",   label: "Valorisation" },
   { id: "dcf",         label: "DCF" },
@@ -192,9 +195,10 @@ const TABS = [
 
 // ── StockCard ────────────────────────────────────────────────────────────────
 
-export default function StockCard({ stock, onRemove, onUpdate }) {
+export default function StockCard({ stock, thresholds, onRemove, onUpdate }) {
   const [expanded, setExpanded] = useState(true);
-  const [activeTab, setActiveTab] = useState("financials");
+  const [activeTab, setActiveTab] = useState("synthese");
+  const [period, setPeriod] = useState("max");
   const s = stock;
   const raw = s.raw || {};
 
@@ -268,10 +272,23 @@ export default function StockCard({ stock, onRemove, onUpdate }) {
             ))}
           </div>
 
+          {/* ── Synthèse ── */}
+          {activeTab === "synthese" && thresholds && (
+            <SyntheseSection stock={s} thresholds={thresholds} />
+          )}
+
           {/* ── Finances ── */}
           {activeTab === "financials" && (
             <div className="tab-content">
-              <FinancialTable raw={raw} />
+              <div className="period-selector">
+                <span className="period-selector-label">Période</span>
+                {[3, 4, 5, "max"].map(p => (
+                  <button key={p} className={`period-btn ${period === p ? "active" : ""}`} onClick={() => setPeriod(p)}>
+                    {p === "max" ? "Max" : `${p} ans`}
+                  </button>
+                ))}
+              </div>
+              <FinancialTable raw={raw} period={period} />
 
               <div className="bottom-grid">
                 {/* Questions clés */}
@@ -303,11 +320,11 @@ export default function StockCard({ stock, onRemove, onUpdate }) {
                       <span className={`sr-value ${colorFromThresholds(s.dividendYield, 0.02, 0.01)}`}>{pct(s.dividendYield)}</span>
                     </div>
                     <div className="simple-row">
-                      <span className="sr-label">Dividende / action</span>
+                      <span className="sr-label">Dividende annuel / action</span>
                       <span className="sr-value dim">{s.currency === "EUR" ? "€" : "$"}{num(s.dividendPerShare)}</span>
                     </div>
                     <div className="simple-row">
-                      <span className="sr-label">Croissance dividende (CAGR)</span>
+                      <span className="sr-label">Croissance dividende (CAGR 10a)</span>
                       <span className={`sr-value ${colorFromThresholds(s.divGrowth, 0.05, 0.02)}`}>{pct(s.divGrowth)}</span>
                     </div>
                   </div>
@@ -331,7 +348,7 @@ export default function StockCard({ stock, onRemove, onUpdate }) {
                   <div className="simple-rows">
                     <div className="simple-row">
                       <span className="sr-label">PER actuel</span>
-                      <span className={`sr-value ${colorFromThresholds(s.peCurrent, 20, 30, true)}`}>{num(s.peCurrent, 1)}x</span>
+                      <span className={`sr-value ${scoreColor(s.peCurrent, thresholds?.perGood ?? 20, thresholds?.perOk ?? 30, true)}`}>{num(s.peCurrent, 1)}x</span>
                     </div>
                     <div className="simple-row">
                       <span className="sr-label">PER historique moyen</span>
@@ -339,7 +356,7 @@ export default function StockCard({ stock, onRemove, onUpdate }) {
                     </div>
                     <div className="simple-row">
                       <span className="sr-label">Forward PER (12m)</span>
-                      <span className={`sr-value ${colorFromThresholds(s.forwardPE, 20, 30, true)}`}>{num(s.forwardPE, 1)}x</span>
+                      <span className={`sr-value ${scoreColor(s.forwardPE, thresholds?.perGood ?? 20, thresholds?.perOk ?? 30, true)}`}>{num(s.forwardPE, 1)}x</span>
                     </div>
                     <div className="simple-row">
                       <span className="sr-label">Capitalisation</span>
@@ -352,11 +369,11 @@ export default function StockCard({ stock, onRemove, onUpdate }) {
                   <div className="simple-rows">
                     <div className="simple-row">
                       <span className="sr-label">BPA croissance estimée</span>
-                      <span className={`sr-value ${colorFromThresholds(s.analystEpsGrowth, 0.10, 0.05)}`}>{pct(s.analystEpsGrowth)}</span>
+                      <span className={`sr-value ${scoreColor(s.analystEpsGrowth, thresholds?.analystEpsGood ?? 0.10, thresholds?.analystEpsOk ?? 0.05)}`}>{pct(s.analystEpsGrowth)}</span>
                     </div>
                     <div className="simple-row">
                       <span className="sr-label">CA croissance estimée</span>
-                      <span className={`sr-value ${colorFromThresholds(s.analystRevGrowth, 0.10, 0.05)}`}>{pct(s.analystRevGrowth)}</span>
+                      <span className={`sr-value ${scoreColor(s.analystRevGrowth, thresholds?.analystRevGood ?? 0.08, thresholds?.analystRevOk ?? 0.05)}`}>{pct(s.analystRevGrowth)}</span>
                     </div>
                   </div>
                 </div>
