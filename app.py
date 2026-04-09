@@ -208,11 +208,13 @@ def get_stock(symbol):
             total_debt  = get_val(bal, col, "Total Debt") if col in bal.columns else None
             eps_val     = get_val(inc, col, "Basic EPS", "Diluted EPS")
 
-            roe  = clean(net_income / equity) if net_income and equity else None
+            # ROE only meaningful when equity is positive
+            roe  = clean(net_income / equity) if net_income and equity and equity > 0 else None
+            # ROIC only meaningful when invested capital (equity + debt) is positive
             roic = None
             if net_income and equity is not None and total_debt is not None:
                 invested = equity + total_debt
-                roic = clean(net_income / invested) if invested else None
+                roic = clean(net_income / invested) if invested and invested > 0 else None
 
             pe_ratio = None
             hist_price = price_history.get(date_str)
