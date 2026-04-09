@@ -85,12 +85,27 @@ def get_stock(symbol):
         for col in inc.columns:
             income.append({
                 "date":                  col_date(col),
-                "revenue":               get_val(inc, col, "Total Revenue"),
-                "netIncome":             get_val(inc, col, "Net Income", "Net Income Common Stockholders"),
-                "ebitda":                get_val(inc, col, "EBITDA"),
-                "eps":                   get_val(inc, col, "Basic EPS", "Diluted EPS"),
-                "weightedAverageShsOut": get_val(inc, col, "Basic Average Shares", "Diluted Average Shares",
-                                                 "Weighted Average Shares", "Average Shares"),
+                "revenue":               get_val(inc, col,
+                                                 "Total Revenue", "Revenue",
+                                                 "Net Revenue", "Sales"),
+                "netIncome":             get_val(inc, col,
+                                                 "Net Income",
+                                                 "Net Income Common Stockholders",
+                                                 "Net Income Applicable To Common Shares"),
+                "ebitda":                get_val(inc, col,
+                                                 "EBITDA", "Normalized EBITDA"),
+                "eps":                   get_val(inc, col,
+                                                 "Basic EPS", "Diluted EPS",
+                                                 "Basic Earnings Per Share",
+                                                 "Diluted Earnings Per Share",
+                                                 "EPS Basic", "EPS Diluted"),
+                "weightedAverageShsOut": get_val(inc, col,
+                                                 "Basic Average Shares",
+                                                 "Diluted Average Shares",
+                                                 "Weighted Average Shares",
+                                                 "Average Shares",
+                                                 "Weighted Average Diluted Shares Outstanding",
+                                                 "Shares Outstanding"),
             })
     except Exception:
         pass
@@ -101,11 +116,16 @@ def get_stock(symbol):
     try:
         bal = ticker.balance_sheet
         for col in bal.columns:
-            total_debt = get_val(bal, col, "Total Debt", "Long Term Debt And Capital Lease Obligation")
+            total_debt = get_val(bal, col,
+                                 "Total Debt",
+                                 "Long Term Debt And Capital Lease Obligation",
+                                 "Long Term Debt",
+                                 "Total Long Term Debt")
             cash = get_val(bal, col,
                            "Cash And Cash Equivalents",
                            "Cash Cash Equivalents And Short Term Investments",
-                           "Cash And Short Term Investments")
+                           "Cash And Short Term Investments",
+                           "Cash And Cash Equivalents And Short Term Investments")
             net_debt = None
             if total_debt is not None and cash is not None:
                 net_debt = total_debt - cash
@@ -114,7 +134,8 @@ def get_stock(symbol):
                 "totalStockholdersEquity": get_val(bal, col,
                                                    "Stockholders Equity",
                                                    "Total Equity Gross Minority Interest",
-                                                   "Common Stock Equity"),
+                                                   "Common Stock Equity",
+                                                   "Total Stockholders Equity"),
                 "totalDebt":               total_debt,
                 "netDebt":                 clean(net_debt),
             })
@@ -127,14 +148,34 @@ def get_stock(symbol):
     try:
         cf = ticker.cash_flow
         for col in cf.columns:
+            # FCF: try direct row first, then compute from Operating CF - Capex
+            fcf_val = get_val(cf, col, "Free Cash Flow")
+            capex_val = get_val(cf, col,
+                                "Capital Expenditure",
+                                "Capital Expenditures",
+                                "Purchase Of Property Plant And Equipment",
+                                "Purchases Of Property Plant And Equipment",
+                                "Capital Expenditures Reported")
+            if fcf_val is None:
+                op_cf = get_val(cf, col,
+                                "Operating Cash Flow",
+                                "Cash Flows From Operations",
+                                "Net Cash Provided By Operating Activities",
+                                "Total Cash From Operating Activities")
+                if op_cf is not None and capex_val is not None:
+                    # capex_val is negative in yfinance (cash outflow)
+                    fcf_val = clean(op_cf + capex_val)
+
             cashflow.append({
-                "date":                col_date(col),
-                "freeCashFlow":        get_val(cf, col, "Free Cash Flow"),
-                "capitalExpenditure":  get_val(cf, col, "Capital Expenditure"),
-                "dividendsPaid":       get_val(cf, col,
-                                               "Common Stock Dividend Paid",
-                                               "Cash Dividends Paid",
-                                               "Payment Of Dividends"),
+                "date":               col_date(col),
+                "freeCashFlow":       fcf_val,
+                "capitalExpenditure": capex_val,
+                "dividendsPaid":      get_val(cf, col,
+                                              "Common Stock Dividend Paid",
+                                              "Cash Dividends Paid",
+                                              "Payment Of Dividends",
+                                              "Dividends Paid",
+                                              "Cash Dividends Paid Common Stock"),
             })
     except Exception:
         pass
@@ -281,6 +322,27 @@ def get_stock(symbol):
         "estimates": estimates,
         "dividends": {"historical": dividends_hist},
     })
+
+
+@app.route("/api/debug/<symbol>")
+def debug_rows(symbol):
+    """Returns raw yfinance row names — useful to diagnose missing fields."""
+    symbol = symbol.upper()
+    ticker = yf.Ticker(symbol)
+    result = {}
+    try:
+        result["income_rows"]  = list(ticker.income_stmt.index)
+    except Exception as e:
+        result["income_rows"] = str(e)
+    try:
+        result["balance_rows"] = list(ticker.balance_sheet.index)
+    except Exception as e:
+        result["balance_rows"] = str(e)
+    try:
+        result["cashflow_rows"] = list(ticker.cash_flow.index)
+    except Exception as e:
+        result["cashflow_rows"] = str(e)
+    return jsonify(result)
 
 
 if __name__ == "__main__":
