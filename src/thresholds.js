@@ -36,7 +36,7 @@ export function computeScore(s, t) {
     s.netMargin     != null && s.netMargin     >= t.netMarginOk,
     s.epsGrowth     != null && s.epsGrowth     >= t.epsGrowthOk,
     s.equity        != null && s.equity        > 0,
-    s.netDebtDecreasing === true,
+    s.netDebtDecreasing === true, // passes when debt NOT growing
     s.fcfGrowth     != null && s.fcfGrowth     >= t.fcfGrowthOk,
     s.debtToEbitda  != null && s.debtToEbitda  <= t.debtEbitdaOk,
     s.roic          != null && s.roic          >= t.roicOk,

@@ -49,20 +49,25 @@ export const processData = (raw) => {
   const latestRat = rat[0] || {};
   const years = inc.length > 1 ? inc.length - 1 : 1;
 
+  // Helper: CAGR from first-to-last non-null positive value in a sorted-newest-first array
+  const cagrSeries = (arr, key) => {
+    const valid = arr.filter(r => r[key] != null && r[key] > 0);
+    if (valid.length < 2) return null;
+    // valid[0] = newest, valid[last] = oldest
+    return cagr(valid[valid.length - 1][key], valid[0][key], valid.length - 1);
+  };
+
   const revenueCurrent = latestInc.revenue;
-  const revenueOld = oldestInc.revenue;
-  const revenueGrowth = cagr(revenueOld, revenueCurrent, years);
+  const revenueGrowth = cagrSeries(inc, 'revenue');
   const netMargin = latestInc.netIncome && latestInc.revenue ? latestInc.netIncome / latestInc.revenue : null;
   const epsCurrent = latestInc.eps;
-  const epsOld = (inc[inc.length - 1] || {}).eps;
-  const epsGrowth = cagr(epsOld, epsCurrent, years);
+  const epsGrowth = cagrSeries(inc, 'eps');
   const equity = latestBal.totalStockholdersEquity;
   const netDebt = latestBal.netDebt;
   const netDebtOld = (bal[bal.length - 1] || {}).netDebt;
   const netDebtDecreasing = netDebtOld != null && netDebt != null && netDebt < netDebtOld;
   const fcfCurrent = latestCF.freeCashFlow;
-  const fcfOld = (cf[cf.length - 1] || {}).freeCashFlow;
-  const fcfGrowth = cagr(fcfOld, fcfCurrent, years);
+  const fcfGrowth = cagrSeries(cf, 'freeCashFlow');
   const ebitda = latestInc.ebitda;
   const totalDebt = latestBal.totalDebt;
   const debtToEbitda = ebitda && totalDebt ? totalDebt / ebitda : null;

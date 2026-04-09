@@ -36,7 +36,7 @@ const SCORE_CRITERIA = [
   { label: "Marge nette",        get: (s, t) => s.netMargin     != null && s.netMargin     >= t.netMarginOk,     hint: (t) => `≥ ${pct(t.netMarginOk)}` },
   { label: "Croissance BPA",     get: (s, t) => s.epsGrowth     != null && s.epsGrowth     >= t.epsGrowthOk,     hint: (t) => `≥ ${pct(t.epsGrowthOk)}/an` },
   { label: "Fonds propres > 0",  get: (s)    => s.equity        != null && s.equity        > 0,                  hint: () => "> 0" },
-  { label: "Dette nette décroît",get: (s)    => s.netDebtDecreasing === true,                                    hint: () => "tendance baissière" },
+  { label: "Dette nette croissante", get: (s) => s.netDebtDecreasing === true,                                   hint: () => "stable ou en baisse" },
   { label: "Croissance FCF",     get: (s, t) => s.fcfGrowth     != null && s.fcfGrowth     >= t.fcfGrowthOk,     hint: (t) => `≥ ${pct(t.fcfGrowthOk)}/an` },
   { label: "Dette/EBITDA",       get: (s, t) => s.debtToEbitda  != null && s.debtToEbitda  <= t.debtEbitdaOk,    hint: (t) => `≤ ${t.debtEbitdaOk}x` },
   { label: "ROIC",               get: (s, t) => s.roic          != null && s.roic          >= t.roicOk,          hint: (t) => `≥ ${pct(t.roicOk)}` },
