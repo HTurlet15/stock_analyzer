@@ -44,7 +44,7 @@ const SCORE_CRITERIA = [
   { label: "Actions décroissent",get: (s)    => s.sharesDecreasing === true,                                     hint: () => "stable ou en baisse" },
   { label: "Payout Ratio",       get: (s, t) => s.payoutRatio   != null && s.payoutRatio   <= t.payoutRatioOk,   hint: (t) => `≤ ${pct(t.payoutRatioOk)}` },
   { label: "Div/FCF",            get: (s, t) => s.divToFcf      != null && s.divToFcf      <= t.divFcfOk,        hint: (t) => `≤ ${pct(t.divFcfOk)}` },
-  { label: "Capex en hausse",    get: (s)    => s.capexGrowing  === true,                                        hint: () => "investit dans sa croissance" },
+  { label: "Capex faible/stagnant", get: (s) => s.capexGrowing  === true,                                       hint: () => "doit investir dans sa croissance" },
 ];
 
 export default function SyntheseSection({ stock, thresholds: t }) {

@@ -79,9 +79,10 @@ export const processData = (raw) => {
   const payoutRatio = latestRat.payoutRatio;
   const dividendsPaid = latestCF.dividendsPaid ? Math.abs(latestCF.dividendsPaid) : null;
   const divToFcf = dividendsPaid && fcfCurrent && fcfCurrent > 0 ? dividendsPaid / fcfCurrent : null;
-  const capex = latestCF.capitalExpenditure ? Math.abs(latestCF.capitalExpenditure) : null;
-  const capexOld = cf[cf.length - 1]?.capitalExpenditure ? Math.abs(cf[cf.length - 1].capitalExpenditure) : null;
-  const capexGrowing = capex && capexOld && capex > capexOld;
+  const capexValid = cf.filter(r => r.capitalExpenditure != null && r.capitalExpenditure !== 0);
+  const capex    = capexValid.length > 0 ? Math.abs(capexValid[0].capitalExpenditure) : null;
+  const capexOld = capexValid.length > 1 ? Math.abs(capexValid[capexValid.length - 1].capitalExpenditure) : null;
+  const capexGrowing = capex != null && capexOld != null && capex > capexOld;
   const profitsVsDebt = latestInc.netIncome && netDebt ? latestInc.netIncome > 0 && (netDebt / latestInc.netIncome) < 5 : null;
   const cashFollowsEarnings = fcfCurrent && latestInc.netIncome ? fcfCurrent / latestInc.netIncome > 0.7 : null;
   const dividendCoveredByEarnings = dividendsPaid && latestInc.netIncome ? dividendsPaid < latestInc.netIncome : null;
