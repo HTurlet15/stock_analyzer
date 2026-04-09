@@ -42,8 +42,8 @@ const SCORE_CRITERIA = [
   { label: "ROIC",               get: (s, t) => s.roic          != null && s.roic          >= t.roicOk,          hint: (t) => `≥ ${pct(t.roicOk)}` },
   { label: "ROE",                get: (s, t) => s.roe           != null && s.roe           >= t.roeOk,           hint: (t) => `≥ ${pct(t.roeOk)}` },
   { label: "Actions décroissent",get: (s)    => s.sharesDecreasing === true,                                     hint: () => "stable ou en baisse" },
-  { label: "Payout Ratio",       get: (s, t) => s.payoutRatio   != null && s.payoutRatio   <= t.payoutRatioOk,   hint: (t) => `≤ ${pct(t.payoutRatioOk)}` },
-  { label: "Div/FCF",            get: (s, t) => s.divToFcf      != null && s.divToFcf      <= t.divFcfOk,        hint: (t) => `≤ ${pct(t.divFcfOk)}` },
+  { label: "Payout Ratio",       get: (s, t) => s.dividendPerShare > 0 ? (s.payoutRatio != null && s.payoutRatio <= t.payoutRatioOk) : null, hint: (t) => `≤ ${pct(t.payoutRatioOk)}` },
+  { label: "Div/FCF",            get: (s, t) => s.dividendPerShare > 0 ? (s.divToFcf    != null && s.divToFcf    <= t.divFcfOk)      : null, hint: (t) => `≤ ${pct(t.divFcfOk)}` },
   { label: "Capex en croissance",   get: (s) => s.capexGrowing  === true,                                       hint: () => "investit dans sa croissance" },
 ];
 
@@ -92,12 +92,13 @@ export default function SyntheseSection({ stock, thresholds: t }) {
           <p className="syn-col-title" style={{ marginBottom: 8 }}>Détail du score — 13 critères</p>
           <div className="score-detail-grid">
             {SCORE_CRITERIA.map(c => {
-              const passed = c.get(s, t);
+              const result = c.get(s, t);
+              const dotCls = result === null ? "na" : result ? "green" : "red";
               return (
                 <div key={c.label} className="sd-criterion">
-                  <span className={`sd-dot ${passed ? "green" : "red"}`} />
+                  <span className={`sd-dot ${dotCls}`} />
                   <span className="sd-label">{c.label}</span>
-                  <span className="sd-hint">{c.hint(t)}</span>
+                  <span className="sd-hint">{result === null ? "N/A — sans dividende" : c.hint(t)}</span>
                 </div>
               );
             })}

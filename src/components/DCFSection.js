@@ -14,7 +14,7 @@ const ScenarioCard = ({ label, result, color, years }) => {
       <div className="scenario-details">
         <div className="sd-row"><span>Sans dividendes</span><span>{(result.returnNoDivs * 100).toFixed(1)}%/an</span></div>
         <div className="sd-row"><span>Prix cible</span><span>${num(result.priceFuture)}</span></div>
-        <div className="sd-row"><span>Dividendes cumulés</span><span>${num(result.dividendsCumulated)}</span></div>
+        {result.dividendsCumulated > 0 && <div className="sd-row"><span>Dividendes cumulés</span><span>${num(result.dividendsCumulated)}</span></div>}
         <div className="sd-row total"><span>Valeur totale</span><span>${num(result.totalValue)}</span></div>
       </div>
     </div>
@@ -40,7 +40,7 @@ const InputRow = ({ label, value, onChange, isPercent }) => (
 export default function DCFSection({ stock, onUpdate }) {
   const s = stock;
 
-  // Source indicator: does the base scenario use real analyst data?
+  const hasDividend = s.dividendPerShare != null && s.dividendPerShare > 0;
   const hasAnalystData = s.analystEpsGrowth != null;
 
   const def = {
@@ -92,8 +92,8 @@ export default function DCFSection({ stock, onUpdate }) {
             { label: "BPA analystes",   val: s.analystEpsGrowth != null ? pct(s.analystEpsGrowth) : "N/A", highlight: hasAnalystData },
             { label: "PER actuel",      val: `${num(s.peCurrent, 1)}x` },
             { label: "PER moyen 5a",    val: `${num(s.peHistorical, 1)}x` },
-            { label: "Div./action",     val: `$${num(s.dividendPerShare)}` },
-            { label: "Div. CAGR",       val: pct(s.divGrowth) },
+            { label: "Div./action",     val: hasDividend ? `$${num(s.dividendPerShare)}` : "N/A" },
+            { label: "Div. CAGR",       val: hasDividend ? pct(s.divGrowth) : "N/A" },
             { label: "Prix actuel",     val: `$${num(s.price)}` },
           ].map((a) => (
             <div key={a.label} className={`anchor-chip ${a.highlight ? "highlight" : ""}`}>
@@ -127,7 +127,10 @@ export default function DCFSection({ stock, onUpdate }) {
             <p className={`scenario-header ${color}`}>{label}</p>
             <InputRow label="Croissance BPA"      value={assum[key].epsGrowth}    onChange={(v) => update(key, "epsGrowth", v)}    isPercent />
             <InputRow label="PER de sortie"       value={assum[key].peExit}       onChange={(v) => update(key, "peExit", v)}       isPercent={false} />
-            <InputRow label="Croissance dividende" value={assum[key].divGrowthRate} onChange={(v) => update(key, "divGrowthRate", v)} isPercent />
+            {hasDividend
+              ? <InputRow label="Croissance dividende" value={assum[key].divGrowthRate} onChange={(v) => update(key, "divGrowthRate", v)} isPercent />
+              : <div className="input-row"><span className="input-label">Croissance dividende</span><span className="input-na">N/A</span></div>
+            }
             <ScenarioCard
               label={label}
               result={key === "bear" ? bearResult : key === "base" ? baseResult : bullResult}

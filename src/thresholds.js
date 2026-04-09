@@ -29,25 +29,31 @@ export function saveThresholds(t) {
   localStorage.setItem(LS_KEY, JSON.stringify(t));
 }
 
+const paysDividend = (s) => s.dividendPerShare != null && s.dividendPerShare > 0;
+
 // Unified score calculation — used in both StockCard header and SyntheseSection
+// Returns null for N/A criteria (excluded from score entirely, not counted as failures)
 export function computeScore(s, t) {
   const checks = [
     s.revenueGrowth != null && s.revenueGrowth >= t.revenueGrowthOk,
     s.netMargin     != null && s.netMargin     >= t.netMarginOk,
     s.epsGrowth     != null && s.epsGrowth     >= t.epsGrowthOk,
     s.equity        != null && s.equity        > 0,
-    s.netDebtDecreasing === true, // passes when debt NOT growing
+    s.netDebtDecreasing === true,
     s.fcfGrowth     != null && s.fcfGrowth     >= t.fcfGrowthOk,
     s.debtToEbitda  != null && s.debtToEbitda  <= t.debtEbitdaOk,
     s.roic          != null && s.roic          >= t.roicOk,
     s.roe           != null && s.roe           >= t.roeOk,
     s.sharesDecreasing === true,
-    s.payoutRatio   != null && s.payoutRatio   <= t.payoutRatioOk,
-    s.divToFcf      != null && s.divToFcf      <= t.divFcfOk,
+    // Dividend criteria: null (N/A) when company pays no dividend
+    paysDividend(s) ? (s.payoutRatio != null && s.payoutRatio <= t.payoutRatioOk) : null,
+    paysDividend(s) ? (s.divToFcf    != null && s.divToFcf    <= t.divFcfOk)      : null,
     s.capexGrowing  === true,
   ];
-  const passed = checks.filter(Boolean).length;
-  return Math.round((passed / checks.length) * 100);
+  // Exclude null (N/A) from both numerator and denominator
+  const applicable = checks.filter(c => c !== null);
+  const passed = applicable.filter(Boolean).length;
+  return applicable.length > 0 ? Math.round((passed / applicable.length) * 100) : 0;
 }
 
 export function scoreColor(value, good, ok, inverse = false) {
