@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { pct, num, money, colorFromThresholds } from "../utils";
-import { scoreColor, computeScore } from "../thresholds";
+import { computeScore } from "../thresholds";
 import MoatSection from "./MoatSection";
 import ManagementSection from "./ManagementSection";
 import DCFSection from "./DCFSection";
 import SyntheseSection from "./SyntheseSection";
+import ValuationSection from "./ValuationSection";
 import "./StockCard.css";
 
 // ── Financial Table ──────────────────────────────────────────────────────────
@@ -336,55 +337,7 @@ export default function StockCard({ stock, thresholds, onRemove, onUpdate }) {
 
           {/* ── Valorisation ── */}
           {activeTab === "valuation" && (
-            <div className="tab-content">
-              <div className="ratios-grid">
-                <div className="ratios-col">
-                  <p className="section-label">Valorisation actuelle</p>
-                  <div className="simple-rows">
-                    <div className="simple-row">
-                      <span className="sr-label">PER actuel</span>
-                      <span className={`sr-value ${scoreColor(s.peCurrent, thresholds?.perGood ?? 20, thresholds?.perOk ?? 30, true)}`}>{num(s.peCurrent, 1)}x</span>
-                    </div>
-                    <div className="simple-row">
-                      <span className="sr-label">PER historique moyen</span>
-                      <span className="sr-value dim">{num(s.peHistorical, 1)}x</span>
-                    </div>
-                    <div className="simple-row">
-                      <span className="sr-label">Forward PER{s.forwardPEYear ? ` (${s.forwardPEYear})` : ""}</span>
-                      <span className={`sr-value ${scoreColor(s.forwardPE, thresholds?.perGood ?? 20, thresholds?.perOk ?? 30, true)}`}>{num(s.forwardPE, 1)}x</span>
-                    </div>
-                    <div className="simple-row">
-                      <span className="sr-label">Capitalisation</span>
-                      <span className="sr-value dim">{money(s.marketCap)}</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="ratios-col">
-                  <p className="section-label">Croissance attendue (analystes)</p>
-                  <div className="simple-rows">
-                    <div className="simple-row">
-                      <span className="sr-label">BPA croissance estimée</span>
-                      <span className={`sr-value ${scoreColor(s.analystEpsGrowth, thresholds?.analystEpsGood ?? 0.10, thresholds?.analystEpsOk ?? 0.05)}`}>{pct(s.analystEpsGrowth)}</span>
-                    </div>
-                    <div className="simple-row">
-                      <span className="sr-label">CA croissance estimée</span>
-                      <span className={`sr-value ${scoreColor(s.analystRevGrowth, thresholds?.analystRevGood ?? 0.08, thresholds?.analystRevOk ?? 0.05)}`}>{pct(s.analystRevGrowth)}</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="ratios-col">
-                  <p className="section-label">Lecture</p>
-                  <div className="valuation-note">
-                    {s.peCurrent && s.peHistorical ? (
-                      <p>PER actuel <strong>{num(s.peCurrent, 1)}x</strong> {s.peCurrent < s.peHistorical ? `en dessous de la moyenne historique (${num(s.peHistorical, 1)}x) → potentiellement sous-évalué.` : `au-dessus de la moyenne historique (${num(s.peHistorical, 1)}x) → surveiller.`}</p>
-                    ) : null}
-                    {s.forwardPE && s.peCurrent ? (
-                      <p style={{ marginTop: 10 }}>Forward PER <strong>{num(s.forwardPE, 1)}x</strong> : {s.forwardPE < s.peCurrent ? "bénéfices attendus en hausse → positif." : "multiple en expansion → surveiller."}</p>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-            </div>
+            <ValuationSection stock={s} thresholds={thresholds} />
           )}
 
           {activeTab === "dcf"        && <DCFSection      stock={stock} thresholds={thresholds} onUpdate={onUpdate} />}

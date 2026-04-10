@@ -1,0 +1,73 @@
+/* ── Summary strip ─────────────────────────────────────────────────────────── */
+.valuation-section { display: flex; flex-direction: column; gap: 16px; padding: 24px; }
+
+.val-summary {
+  display: flex; flex-wrap: wrap; gap: 12px;
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: 12px; padding: 16px 20px;
+}
+
+.val-sum-item { display: flex; flex-direction: column; gap: 2px; min-width: 110px; }
+.val-sum-label { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+.val-sum-value { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.val-sum-value.green  { color: var(--green); }
+.val-sum-value.orange { color: var(--orange); }
+.val-sum-value.red    { color: var(--red); }
+.val-sum-value.dim    { color: var(--text); }
+.val-sum-hint { font-size: 11px; font-weight: 400; color: var(--text-muted); }
+
+/* ── Table ─────────────────────────────────────────────────────────────────── */
+.val-table-wrap { overflow-x: auto; border-radius: 12px; border: 1px solid var(--border); }
+
+.val-table {
+  width: 100%; border-collapse: collapse;
+  background: var(--bg-elevated);
+  font-size: 13px;
+}
+
+.val-table thead th {
+  padding: 8px 12px; font-size: 11px; font-weight: 600;
+  color: var(--text-muted); text-align: right; white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-card);
+}
+.val-table thead th.vt-label { text-align: left; }
+
+.vt-row { cursor: pointer; transition: background 0.12s; }
+.vt-row:hover { background: var(--bg-card); }
+.vt-row.expanded { background: var(--bg-card); }
+.vt-row td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
+
+.vt-label { text-align: left; min-width: 140px; }
+.vt-label-text { color: var(--text-muted); }
+.vt-expand-icon { font-size: 9px; color: var(--text-dim); margin-left: 6px; }
+
+.vt-data { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-muted); white-space: nowrap; }
+.vt-data.green  { color: var(--green); }
+.vt-data.orange { color: var(--orange); }
+.vt-data.red    { color: var(--red); }
+.vt-data.dim    { color: var(--text-muted); }
+
+/* Last column (latest year) emphasized */
+.vt-row td:last-child { font-weight: 600; }
+
+/* ── Inline chart ──────────────────────────────────────────────────────────── */
+.vt-chart-row td { padding: 0; border-bottom: 1px solid var(--border); }
+.vt-chart-cell { background: var(--bg-card); }
+
+.val-chart-wrap {
+  padding: 12px 8px 8px;
+}
+
+.val-chart-empty { font-size: 12px; color: var(--text-dim); padding: 16px; text-align: center; }
+
+/* ── Tooltip ───────────────────────────────────────────────────────────────── */
+.val-tooltip {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 6px; padding: 6px 10px;
+  font-size: 12px; display: flex; flex-direction: column; gap: 2px;
+}
+.val-tooltip-year  { color: var(--text-muted); font-size: 11px; }
+.val-tooltip-value { color: var(--text); font-weight: 600; }
+
+.val-empty { font-size: 13px; color: var(--text-dim); padding: 24px; text-align: center; }
