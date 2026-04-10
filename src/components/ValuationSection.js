@@ -130,8 +130,27 @@ export default function ValuationSection({ stock, thresholds: t }) {
   const met = [...(raw.metrics || [])].sort((a, b) => new Date(a.date) - new Date(b.date));
   const YEARS = met.map(r => r.date.slice(0, 4));
 
-  // Chart data: one entry per year with all metric keys
-  const chartData = met.map(r => ({ year: r.date.slice(0, 4), ...r }));
+  // Current-year values (live from quote)
+  const currentYear = new Date().getFullYear().toString();
+  const ebitdaCurrent = (raw.income?.[0] || {}).ebitda;
+  const currentValues = {
+    peRatio:      s.peCurrent,
+    priceToSales: s.price && s.revenueCurrent && s.sharesCurrent > 0
+      ? s.price / (s.revenueCurrent / s.sharesCurrent) : null,
+    priceToBook:  s.price && s.equity && s.equity > 0 && s.sharesCurrent > 0
+      ? s.price / (s.equity / s.sharesCurrent) : null,
+    evToEbitda:   s.marketCap != null && s.netDebt != null && ebitdaCurrent && ebitdaCurrent > 0
+      ? (s.marketCap + s.netDebt) / ebitdaCurrent : null,
+    roe:          s.roe,
+    roic:         s.roic,
+    marketCap:    s.marketCap,
+  };
+
+  // Chart data includes current year as final point
+  const chartData = [
+    ...met.map(r => ({ year: r.date.slice(0, 4), ...r })),
+    ...(currentYear !== YEARS[YEARS.length - 1] ? [{ year: currentYear, ...currentValues }] : []),
+  ];
 
   const rows = buildRows(t || {});
 
@@ -205,13 +224,15 @@ export default function ValuationSection({ stock, thresholds: t }) {
               <tr>
                 <th className="vt-label" />
                 {YEARS.map(y => <th key={y} className="vt-year">{y}</th>)}
+                <th className="vt-year vt-current">{currentYear} ★</th>
               </tr>
             </thead>
             <tbody>
               {rows.map(row => {
                 const vals = met.map(r => r[row.key]);
-                const latestVal = vals[vals.length - 1];
+                const curVal = currentValues[row.key];
                 const isExpanded = expandedRow === row.key;
+                const totalCols = YEARS.length + 2; // label + years + current
                 return [
                   <tr
                     key={row.key}
@@ -223,14 +244,17 @@ export default function ValuationSection({ stock, thresholds: t }) {
                       <span className="vt-expand-icon">{isExpanded ? "▲" : "▼"}</span>
                     </td>
                     {vals.map((v, i) => (
-                      <td key={i} className={`vt-data ${i === vals.length - 1 ? row.colorFn(v) : "dim"}`}>
+                      <td key={i} className="vt-data dim">
                         {row.fmt(v)}
                       </td>
                     ))}
+                    <td className={`vt-data vt-current ${row.colorFn(curVal)}`}>
+                      {row.fmt(curVal)}
+                    </td>
                   </tr>,
                   isExpanded && (
                     <tr key={`${row.key}-chart`} className="vt-chart-row">
-                      <td colSpan={YEARS.length + 1} className="vt-chart-cell">
+                      <td colSpan={totalCols} className="vt-chart-cell">
                         <InlineChart
                           data={chartData}
                           dataKey={row.key}

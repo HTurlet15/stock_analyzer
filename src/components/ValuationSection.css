@@ -48,8 +48,9 @@
 .vt-data.red    { color: var(--red); }
 .vt-data.dim    { color: var(--text-muted); }
 
-/* Last column (latest year) emphasized */
-.vt-row td:last-child { font-weight: 600; }
+/* Current year column */
+.vt-year.vt-current { color: var(--text); font-weight: 700; }
+.vt-data.vt-current { font-weight: 700; }
 
 /* ── Inline chart ──────────────────────────────────────────────────────────── */
 .vt-chart-row td { padding: 0; border-bottom: 1px solid var(--border); }
