@@ -199,15 +199,26 @@ def fmp_price_target(symbol):
     }
 
 
-def merge_data(yf_list, av_list):
-    """Merge yfinance (priority) + AV (historical). Dedup by fiscal year."""
-    if not av_list:
-        return yf_list
-    yf_years = {e["date"][:4] for e in yf_list if e.get("date")}
-    extra = [e for e in av_list if e.get("date", "")[:4] not in yf_years]
-    merged = yf_list + extra
+def merge_data(primary, secondary):
+    """Merge two annual lists. Primary source wins; secondary fills missing years."""
+    if not primary:
+        return secondary or []
+    if not secondary:
+        return primary
+    primary_years = {e["date"][:4] for e in primary if e.get("date")}
+    extra = [e for e in secondary if e.get("date", "")[:4] not in primary_years]
+    merged = primary + extra
     merged.sort(key=lambda x: x.get("date", ""), reverse=True)
     return merged
+
+
+def get_for_year(lst, date_str):
+    """Return the first list entry whose fiscal year matches date_str's year."""
+    year = date_str[:4]
+    for item in lst:
+        if item.get("date", "").startswith(year):
+            return item
+    return {}
 
 
 @app.route("/api/health")
@@ -348,11 +359,25 @@ def get_stock(symbol):
         pass
     cashflow.sort(key=lambda x: x["date"], reverse=True)
 
-    # ── Key metrics (ROIC, ROE, historical PE) ────────────────────────────────
-    # Build a price-history index so we can look up price at each fiscal year end
+    # ── Alpha Vantage — primary source; yfinance fills recent gaps ───────────
+    if AV_KEY:
+        try:
+            av_inc = av_income(symbol)
+            time.sleep(0.5)
+            av_bal = av_balance(symbol)
+            time.sleep(0.5)
+            av_cf  = av_cashflow(symbol)
+            # AV is primary: its data wins; yfinance fills years AV doesn't cover
+            income   = merge_data(av_inc,  income)
+            balance  = merge_data(av_bal,  balance)
+            cashflow = merge_data(av_cf,   cashflow)
+        except Exception:
+            pass
+
+    # ── Price history (max range to cover AV's 20-year data) ─────────────────
     price_history = {}
     try:
-        hist = ticker.history(period="10y", interval="1mo")
+        hist = ticker.history(period="max", interval="1mo")
         if hist is not None and not hist.empty:
             hist.index = hist.index.tz_localize(None) if hist.index.tz is not None else hist.index
             for entry in income:
@@ -363,113 +388,66 @@ def get_stock(symbol):
     except Exception:
         pass
 
+    # ── Metrics from merged lists (covers all years including AV history) ────
     metrics = []
-    try:
-        inc = ticker.income_stmt
-        bal = ticker.balance_sheet
-        for col in inc.columns:
-            date_str = col_date(col)
-            net_income  = get_val(inc, col, "Net Income", "Net Income Common Stockholders")
-            equity      = get_val(bal, col, "Stockholders Equity", "Total Equity Gross Minority Interest",
-                                  "Common Stock Equity") if col in bal.columns else None
-            total_debt  = get_val(bal, col, "Total Debt") if col in bal.columns else None
-            eps_val     = get_val(inc, col, "Basic EPS", "Diluted EPS")
+    for item in income:
+        date_str   = item["date"]
+        bal_row    = get_for_year(balance,  date_str)
+        net_income = item.get("netIncome")
+        equity     = bal_row.get("totalStockholdersEquity")
+        total_debt = bal_row.get("totalDebt")
+        net_debt   = bal_row.get("netDebt")
+        eps_val    = item.get("eps")
+        revenue    = item.get("revenue")
+        ebitda     = item.get("ebitda")
+        shares     = item.get("weightedAverageShsOut")
+        hist_price = price_history.get(date_str)
 
-            # ROE only meaningful when equity is positive
-            roe  = clean(net_income / equity) if net_income and equity and equity > 0 else None
-            # ROIC only meaningful when invested capital (equity + debt) is positive
-            roic = None
-            if net_income and equity is not None and total_debt is not None:
-                invested = equity + total_debt
-                roic = clean(net_income / invested) if invested and invested > 0 else None
+        roe  = clean(net_income / equity) if net_income and equity and equity > 0 else None
+        roic = None
+        if net_income is not None and equity is not None and total_debt is not None:
+            invested = equity + total_debt
+            roic = clean(net_income / invested) if invested and invested > 0 else None
 
-            pe_ratio      = None
-            price_to_sales = None
-            price_to_book  = None
-            ev_to_ebitda   = None
-            market_cap_val = None
-            hist_price = price_history.get(date_str)
+        pe_ratio       = clean(hist_price / eps_val)               if hist_price and eps_val  and eps_val  > 0                            else None
+        price_to_sales = clean(hist_price / (revenue / shares))    if hist_price and revenue  and shares   and shares > 0                 else None
+        price_to_book  = clean(hist_price / (equity  / shares))    if hist_price and equity   and equity   > 0 and shares and shares > 0  else None
+        mc             = clean(hist_price * shares)                 if hist_price and shares                                               else None
+        ev_to_ebitda   = clean((hist_price * shares + net_debt) / ebitda) \
+                         if hist_price and shares and net_debt is not None and ebitda and ebitda > 0 else None
 
-            revenue  = get_val(inc, col, "Total Revenue", "Revenue", "Net Revenue", "Sales")
-            ebitda   = get_val(inc, col, "EBITDA", "Normalized EBITDA")
-            shares   = get_val(inc, col, "Basic Average Shares", "Diluted Average Shares",
-                               "Weighted Average Shares", "Average Shares")
-            net_debt_val = None
-            if col in bal.columns:
-                td  = get_val(bal, col, "Total Debt")
-                csh = get_val(bal, col, "Cash And Cash Equivalents",
-                              "Cash Cash Equivalents And Short Term Investments",
-                              "Cash And Cash Equivalents And Short Term Investments",
-                              "Cash And Short Term Investments")
-                if td is not None and csh is not None:
-                    net_debt_val = td - csh
-
-            if hist_price and eps_val and eps_val > 0:
-                pe_ratio = clean(hist_price / eps_val)
-            if hist_price and shares and shares > 0 and revenue and revenue > 0:
-                price_to_sales = clean(hist_price / (revenue / shares))
-            if hist_price and shares and shares > 0 and equity and equity > 0:
-                price_to_book = clean(hist_price / (equity / shares))
-            if hist_price and shares and shares > 0:
-                mc = hist_price * shares
-                market_cap_val = clean(mc)
-                if net_debt_val is not None and ebitda and ebitda > 0:
-                    ev_to_ebitda = clean((mc + net_debt_val) / ebitda)
-
-            metrics.append({
-                "date":         date_str,
-                "roic":         roic,
-                "roe":          roe,
-                "peRatio":      pe_ratio,
-                "priceToSales": price_to_sales,
-                "priceToBook":  price_to_book,
-                "evToEbitda":   ev_to_ebitda,
-                "marketCap":    market_cap_val,
-            })
-    except Exception:
-        pass
+        metrics.append({
+            "date":         date_str,
+            "roic":         roic,
+            "roe":          roe,
+            "peRatio":      pe_ratio,
+            "priceToSales": price_to_sales,
+            "priceToBook":  price_to_book,
+            "evToEbitda":   ev_to_ebitda,
+            "marketCap":    mc,
+        })
     metrics.sort(key=lambda x: x["date"], reverse=True)
 
-    # ── Ratios ───────────────────────────────────────────────────────────────
+    # ── Ratios from merged lists ──────────────────────────────────────────────
     ratios = []
-    try:
-        inc = ticker.income_stmt
-        bal = ticker.balance_sheet
-        cf  = ticker.cash_flow
-        for col in inc.columns:
-            date_str   = col_date(col)
-            net_income = get_val(inc, col, "Net Income", "Net Income Common Stockholders")
-            divs_paid  = None
-            if col in cf.columns:
-                divs_paid = get_val(cf, col, "Common Stock Dividend Paid",
-                                    "Cash Dividends Paid", "Payment Of Dividends")
+    for item in income:
+        date_str   = item["date"]
+        bal_row    = get_for_year(balance,  date_str)
+        cf_row     = get_for_year(cashflow, date_str)
+        net_income = item.get("netIncome")
+        divs_paid  = cf_row.get("dividendsPaid")
+        equity     = bal_row.get("totalStockholdersEquity")
+        total_debt = bal_row.get("totalDebt")
 
-            payout_ratio = None
-            if divs_paid is not None and net_income:
-                payout_ratio = clean(abs(divs_paid) / net_income)
+        payout_ratio   = clean(abs(divs_paid) / net_income) if divs_paid is not None and net_income and net_income > 0 else None
+        debt_to_equity = clean(total_debt / equity)         if total_debt is not None and equity and equity > 0        else None
 
-            current_ratio = None
-            debt_to_equity = None
-            if col in bal.columns:
-                cur_assets  = get_val(bal, col, "Current Assets")
-                cur_liab    = get_val(bal, col, "Current Liabilities")
-                if cur_assets and cur_liab:
-                    current_ratio = clean(cur_assets / cur_liab)
-
-                equity     = get_val(bal, col, "Stockholders Equity",
-                                     "Total Equity Gross Minority Interest", "Common Stock Equity")
-                total_debt = get_val(bal, col, "Total Debt")
-                if total_debt is not None and equity:
-                    debt_to_equity = clean(total_debt / equity)
-
-            ratios.append({
-                "date":          date_str,
-                "payoutRatio":   payout_ratio,
-                "currentRatio":  current_ratio,
-                "debtToEquity":  debt_to_equity,
-            })
-    except Exception:
-        pass
+        ratios.append({
+            "date":          date_str,
+            "payoutRatio":   payout_ratio,
+            "currentRatio":  None,
+            "debtToEquity":  debt_to_equity,
+        })
     ratios.sort(key=lambda x: x["date"], reverse=True)
 
     # ── Analyst estimates ────────────────────────────────────────────────────
@@ -511,20 +489,6 @@ def get_stock(symbol):
             dividends_hist.sort(key=lambda x: x["date"], reverse=True)
     except Exception:
         pass
-
-    # ── Alpha Vantage — extend history to 10+ years ───────────────────────────
-    if AV_KEY:
-        try:
-            av_inc = av_income(symbol)
-            time.sleep(0.5)
-            av_bal = av_balance(symbol)
-            time.sleep(0.5)
-            av_cf  = av_cashflow(symbol)
-            income   = merge_data(income,   av_inc)
-            balance  = merge_data(balance,  av_bal)
-            cashflow = merge_data(cashflow, av_cf)
-        except Exception:
-            pass
 
     # ── FMP — analyst estimates + price target ────────────────────────────────
     price_target = None

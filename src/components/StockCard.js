@@ -55,9 +55,7 @@ const FinancialTable = ({ raw, period }) => {
   const met = [...(raw.metrics  || [])].slice(0, LIMIT).reverse();
   const rat = [...(raw.ratios   || [])].slice(0, LIMIT).reverse();
 
-  // Only show years present in both income AND balance to avoid mostly-empty columns
-  const balYearSet = new Set(bal.map(r => r.date?.slice(0, 4)).filter(Boolean));
-  const YEARS = inc.map(r => r.date.slice(0, 4)).filter(y => balYearSet.has(y));
+  const YEARS = inc.map(r => r.date.slice(0, 4));
   if (!YEARS.length) return <p className="empty-table">Données indisponibles.</p>;
 
   // Latest data column (most recent entry from each source, regardless of period)
