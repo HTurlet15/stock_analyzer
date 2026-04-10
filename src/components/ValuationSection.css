@@ -21,7 +21,7 @@
 
 .val-table {
   width: 100%; border-collapse: collapse;
-  background: var(--bg-elevated);
+  background: var(--bg-card);
   font-size: 13px;
 }
 
