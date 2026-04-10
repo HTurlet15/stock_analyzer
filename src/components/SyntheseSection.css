@@ -38,6 +38,18 @@
 .syn-row-value.dim    { color: var(--text-muted); }
 .syn-row-hint { font-size: 10px; color: var(--text-dim); white-space: nowrap; }
 
+/* Analyst rating bar */
+.rating-bar-wrap { display: flex; flex-direction: column; gap: 4px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.rating-bar-label { font-size: 11px; color: var(--text-muted); }
+.rating-bar { display: flex; height: 6px; border-radius: 3px; overflow: hidden; background: var(--bg-card); }
+.rb-green  { background: var(--green); }
+.rb-orange { background: var(--orange); }
+.rb-red    { background: var(--red); }
+.rating-legend { font-size: 10px; }
+.rating-legend .green  { color: var(--green); }
+.rating-legend .dim    { color: var(--text-muted); }
+.rating-legend .red    { color: var(--red); }
+
 /* Divider */
 .syn-divider { height: 1px; background: var(--border); margin: 4px 0; }
 
