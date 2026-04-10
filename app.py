@@ -9,8 +9,12 @@ from flask_cors import CORS
 import yfinance as yf
 
 # ── Alpha Vantage config ──────────────────────────────────────────────────────
-AV_KEY = os.environ.get("AV_API_KEY", "")
+AV_KEY  = os.environ.get("AV_API_KEY", "")
 AV_BASE = "https://www.alphavantage.co/query"
+
+# ── Financial Modeling Prep config ────────────────────────────────────────────
+FMP_KEY  = os.environ.get("REACT_APP_FMP_API_KEY", "") or os.environ.get("FMP_API_KEY", "")
+FMP_BASE = "https://financialmodelingprep.com/api/v3"
 
 app = Flask(__name__)
 CORS(app, origins=["http://localhost:3000"])
@@ -136,6 +140,63 @@ def av_cashflow(symbol):
             "dividendsPaid":      -abs(divs) if divs is not None else None,
         })
     return result
+
+
+# ── FMP helpers ───────────────────────────────────────────────────────────────
+
+def fmp_fetch(endpoint, symbol, **params):
+    if not FMP_KEY:
+        return None
+    try:
+        url = f"{FMP_BASE}/{endpoint}/{symbol}"
+        r = requests.get(url, params={"apikey": FMP_KEY, **params}, timeout=10)
+        data = r.json()
+        if isinstance(data, dict) and "Error Message" in data:
+            return None
+        return data
+    except Exception:
+        return None
+
+
+def fmp_estimates(symbol):
+    """Annual analyst estimates from FMP — up to 5 forward years."""
+    data = fmp_fetch("analyst-estimates", symbol, period="annual")
+    if not data or not isinstance(data, list):
+        return []
+    result = []
+    for r in data:
+        date = str(r.get("date", ""))[:10]
+        if not date:
+            continue
+        result.append({
+            "date":                  date,
+            "estimatedEpsAvg":       r.get("estimatedEpsAvg"),
+            "estimatedEpsHigh":      r.get("estimatedEpsHigh"),
+            "estimatedEpsLow":       r.get("estimatedEpsLow"),
+            "estimatedRevenueAvg":   r.get("estimatedRevenueAvg"),
+            "estimatedRevenueHigh":  r.get("estimatedRevenueHigh"),
+            "estimatedRevenueLow":   r.get("estimatedRevenueLow"),
+            "numberAnalysts":        r.get("numberAnalystEstimatedEps"),
+        })
+    # Sort ascending (nearest first)
+    result.sort(key=lambda x: x["date"])
+    # Keep only future dates
+    today = datetime.date.today().isoformat()
+    result = [e for e in result if e["date"] >= today[:7]]
+    return result
+
+
+def fmp_price_target(symbol):
+    """Analyst price target consensus from FMP."""
+    data = fmp_fetch("price-target-consensus", symbol)
+    if not data or not isinstance(data, dict):
+        return None
+    return {
+        "consensus": data.get("targetConsensus"),
+        "high":      data.get("targetHigh"),
+        "low":       data.get("targetLow"),
+        "median":    data.get("targetMedian"),
+    }
 
 
 def merge_data(yf_list, av_list):
@@ -322,16 +383,48 @@ def get_stock(symbol):
                 invested = equity + total_debt
                 roic = clean(net_income / invested) if invested and invested > 0 else None
 
-            pe_ratio = None
+            pe_ratio      = None
+            price_to_sales = None
+            price_to_book  = None
+            ev_to_ebitda   = None
+            market_cap_val = None
             hist_price = price_history.get(date_str)
+
+            revenue  = get_val(inc, col, "Total Revenue", "Revenue", "Net Revenue", "Sales")
+            ebitda   = get_val(inc, col, "EBITDA", "Normalized EBITDA")
+            shares   = get_val(inc, col, "Basic Average Shares", "Diluted Average Shares",
+                               "Weighted Average Shares", "Average Shares")
+            net_debt_val = None
+            if col in bal.columns:
+                td  = get_val(bal, col, "Total Debt")
+                csh = get_val(bal, col, "Cash And Cash Equivalents",
+                              "Cash Cash Equivalents And Short Term Investments",
+                              "Cash And Cash Equivalents And Short Term Investments",
+                              "Cash And Short Term Investments")
+                if td is not None and csh is not None:
+                    net_debt_val = td - csh
+
             if hist_price and eps_val and eps_val > 0:
                 pe_ratio = clean(hist_price / eps_val)
+            if hist_price and shares and shares > 0 and revenue and revenue > 0:
+                price_to_sales = clean(hist_price / (revenue / shares))
+            if hist_price and shares and shares > 0 and equity and equity > 0:
+                price_to_book = clean(hist_price / (equity / shares))
+            if hist_price and shares and shares > 0:
+                mc = hist_price * shares
+                market_cap_val = clean(mc)
+                if net_debt_val is not None and ebitda and ebitda > 0:
+                    ev_to_ebitda = clean((mc + net_debt_val) / ebitda)
 
             metrics.append({
-                "date":    date_str,
-                "roic":    roic,
-                "roe":     roe,
-                "peRatio": pe_ratio,
+                "date":         date_str,
+                "roic":         roic,
+                "roe":          roe,
+                "peRatio":      pe_ratio,
+                "priceToSales": price_to_sales,
+                "priceToBook":  price_to_book,
+                "evToEbitda":   ev_to_ebitda,
+                "marketCap":    market_cap_val,
             })
     except Exception:
         pass
@@ -423,7 +516,7 @@ def get_stock(symbol):
     if AV_KEY:
         try:
             av_inc = av_income(symbol)
-            time.sleep(0.5)           # stay within 5 req/min
+            time.sleep(0.5)
             av_bal = av_balance(symbol)
             time.sleep(0.5)
             av_cf  = av_cashflow(symbol)
@@ -431,18 +524,59 @@ def get_stock(symbol):
             balance  = merge_data(balance,  av_bal)
             cashflow = merge_data(cashflow, av_cf)
         except Exception:
-            pass                      # AV failure never breaks the response
+            pass
+
+    # ── FMP — analyst estimates + price target ────────────────────────────────
+    price_target = None
+    if FMP_KEY:
+        try:
+            fmp_est = fmp_estimates(symbol)
+            if fmp_est:
+                # FMP estimates take priority over yfinance estimates
+                estimates = fmp_est
+        except Exception:
+            pass
+        try:
+            price_target = fmp_price_target(symbol)
+        except Exception:
+            pass
+
+    # ── yfinance — analyst recommendations summary ────────────────────────────
+    analyst_rating = None
+    try:
+        rec_summary = ticker.recommendations_summary
+        if rec_summary is not None and not rec_summary.empty:
+            row = rec_summary[rec_summary["period"] == "0m"]
+            if row.empty:
+                row = rec_summary.iloc[[0]]
+            if not row.empty:
+                r = row.iloc[0]
+                total = int(r.get("strongBuy", 0) + r.get("buy", 0) +
+                            r.get("hold", 0) + r.get("sell", 0) + r.get("strongSell", 0))
+                if total > 0:
+                    analyst_rating = {
+                        "strongBuy":  int(r.get("strongBuy", 0)),
+                        "buy":        int(r.get("buy", 0)),
+                        "hold":       int(r.get("hold", 0)),
+                        "sell":       int(r.get("sell", 0)),
+                        "strongSell": int(r.get("strongSell", 0)),
+                        "total":      total,
+                    }
+    except Exception:
+        pass
 
     return jsonify({
-        "quote":     quote,
-        "profile":   profile,
-        "income":    income,
-        "balance":   balance,
-        "cashflow":  cashflow,
-        "metrics":   metrics,
-        "ratios":    ratios,
-        "estimates": estimates,
-        "dividends": {"historical": dividends_hist},
+        "quote":         quote,
+        "profile":       profile,
+        "income":        income,
+        "balance":       balance,
+        "cashflow":      cashflow,
+        "metrics":       metrics,
+        "ratios":        ratios,
+        "estimates":     estimates,
+        "dividends":     {"historical": dividends_hist},
+        "priceTarget":   price_target,
+        "analystRating": analyst_rating,
     })
 
 
