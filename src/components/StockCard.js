@@ -2,6 +2,12 @@ import { useState } from "react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip } from "recharts";
 import { pct, num, money, colorFromThresholds } from "../utils";
 import { computeScore } from "../thresholds";
+import MoatSection from "./MoatSection";
+import ManagementSection from "./ManagementSection";
+import DCFSection from "./DCFSection";
+import SyntheseSection from "./SyntheseSection";
+import ValuationSection from "./ValuationSection";
+import "./StockCard.css";
 
 const FinChart = ({ years, rawValues, fmt }) => {
   const data = years.map((y, i) => ({ year: y, value: rawValues[i] }));
@@ -36,16 +42,12 @@ const FinChart = ({ years, rawValues, fmt }) => {
     </div>
   );
 };
-import MoatSection from "./MoatSection";
-import ManagementSection from "./ManagementSection";
-import DCFSection from "./DCFSection";
-import SyntheseSection from "./SyntheseSection";
-import ValuationSection from "./ValuationSection";
-import "./StockCard.css";
 
 // ── Financial Table ──────────────────────────────────────────────────────────
 
 const FinancialTable = ({ raw, period }) => {
+  const [expandedRow, setExpandedRow] = useState(null);
+
   const LIMIT = period === "max" ? 20 : period;
   const inc = [...(raw.income   || [])].slice(0, LIMIT).reverse();
   const bal = [...(raw.balance  || [])].slice(0, LIMIT).reverse();
@@ -55,8 +57,6 @@ const FinancialTable = ({ raw, period }) => {
 
   const YEARS = inc.map(r => r.date.slice(0, 4));
   if (!YEARS.length) return <p className="empty-table">Données indisponibles.</p>;
-
-  const [expandedRow, setExpandedRow] = useState(null);
 
   const byYear = (arr, year) => arr.find(r => r.date?.startsWith(year)) || {};
 
