@@ -1,6 +1,41 @@
 import { useState } from "react";
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip } from "recharts";
 import { pct, num, money, colorFromThresholds } from "../utils";
 import { computeScore } from "../thresholds";
+
+const FinChart = ({ years, rawValues, fmt }) => {
+  const data = years.map((y, i) => ({ year: y, value: rawValues[i] }));
+  const valid = rawValues.filter(v => v != null && isFinite(v));
+  if (valid.length < 2) return <p style={{ padding: "12px 16px", fontSize: 12, color: "var(--text-dim)", textAlign: "center" }}>Pas assez de données.</p>;
+  const min = Math.min(...valid);
+  const max = Math.max(...valid);
+  const pad = (max - min) * 0.15 || Math.abs(max) * 0.1 || 1;
+  return (
+    <div style={{ padding: "12px 8px 8px", background: "var(--bg-card)" }}>
+      <ResponsiveContainer width="100%" height={130}>
+        <LineChart data={data} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
+          <XAxis dataKey="year" tick={{ fontSize: 11, fill: "var(--text-muted)" }} tickLine={false} axisLine={false} />
+          <YAxis
+            domain={[min - pad, max + pad]}
+            tick={{ fontSize: 11, fill: "var(--text-muted)" }}
+            tickLine={false} axisLine={false}
+            tickFormatter={fmt} width={62}
+          />
+          <Tooltip content={({ active, payload, label }) => {
+            if (!active || !payload?.length) return null;
+            return (
+              <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 6, padding: "6px 10px", fontSize: 12 }}>
+                <div style={{ color: "var(--text-muted)", fontSize: 11 }}>{label}</div>
+                <div style={{ color: "var(--text)", fontWeight: 600 }}>{fmt(payload[0].value)}</div>
+              </div>
+            );
+          }} />
+          <Line type="monotone" dataKey="value" stroke="var(--blue)" strokeWidth={2} dot={{ r: 3, fill: "var(--blue)", strokeWidth: 0 }} connectNulls={false} />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+};
 import MoatSection from "./MoatSection";
 import ManagementSection from "./ManagementSection";
 import DCFSection from "./DCFSection";
@@ -20,6 +55,8 @@ const FinancialTable = ({ raw, period }) => {
 
   const YEARS = inc.map(r => r.date.slice(0, 4));
   if (!YEARS.length) return <p className="empty-table">Données indisponibles.</p>;
+
+  const [expandedRow, setExpandedRow] = useState(null);
 
   const byYear = (arr, year) => arr.find(r => r.date?.startsWith(year)) || {};
 
@@ -69,8 +106,8 @@ const FinancialTable = ({ raw, period }) => {
   const rows = [];
   const sec = title => rows.push({ isSection: true, title });
   const row = (label, getVal, fmt, getTrend) => {
-    const vals = YEARS.map(getVal);
-    rows.push({ label, values: vals.map(fmt), trend: getTrend(vals) });
+    const rawVals = YEARS.map(getVal);
+    rows.push({ label, values: rawVals.map(fmt), rawValues: rawVals, fmt, trend: getTrend(rawVals) });
   };
 
   // Compte de résultat
@@ -150,19 +187,28 @@ const FinancialTable = ({ raw, period }) => {
           </tr>
         </thead>
         <tbody>
-          {rows.map((r, i) =>
-            r.isSection ? (
+          {rows.map((r, i) => {
+            if (r.isSection) return (
               <tr key={i} className="ft-section">
                 <td colSpan={YEARS.length + 2}>{r.title}</td>
               </tr>
-            ) : (
-              <tr key={i} className="ft-row">
+            );
+            const isOpen = expandedRow === i;
+            return [
+              <tr key={i} className="ft-row" style={{ cursor: "pointer" }} onClick={() => setExpandedRow(isOpen ? null : i)}>
                 <td className="ft-label">{r.label}</td>
                 {r.values.map((v, j) => <td key={j} className="ft-data">{v}</td>)}
                 <td className={`ft-trend ${r.trend.cls}`}>{r.trend.label}</td>
-              </tr>
-            )
-          )}
+              </tr>,
+              isOpen && (
+                <tr key={`chart-${i}`}>
+                  <td colSpan={YEARS.length + 2} style={{ padding: 0, borderBottom: "1px solid var(--border)" }}>
+                    <FinChart years={YEARS} rawValues={r.rawValues} fmt={r.fmt} />
+                  </td>
+                </tr>
+              ),
+            ];
+          })}
         </tbody>
       </table>
     </div>
