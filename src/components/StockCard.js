@@ -55,8 +55,18 @@ const FinancialTable = ({ raw, period }) => {
   const met = [...(raw.metrics  || [])].slice(0, LIMIT).reverse();
   const rat = [...(raw.ratios   || [])].slice(0, LIMIT).reverse();
 
-  const YEARS = inc.map(r => r.date.slice(0, 4));
+  // Only show years present in both income AND balance to avoid mostly-empty columns
+  const balYearSet = new Set(bal.map(r => r.date?.slice(0, 4)).filter(Boolean));
+  const YEARS = inc.map(r => r.date.slice(0, 4)).filter(y => balYearSet.has(y));
   if (!YEARS.length) return <p className="empty-table">Données indisponibles.</p>;
+
+  // Latest data column (most recent entry from each source, regardless of period)
+  const curInc = (raw.income   || [])[0] || {};
+  const curBal = (raw.balance  || [])[0] || {};
+  const curCF  = (raw.cashflow || [])[0] || {};
+  const curMet = (raw.metrics  || [])[0] || {};
+  const curRat = (raw.ratios   || [])[0] || {};
+  const latestYear = curInc.date?.slice(0, 4) || new Date().getFullYear().toString();
 
   const byYear = (arr, year) => arr.find(r => r.date?.startsWith(year)) || {};
 
@@ -105,76 +115,80 @@ const FinancialTable = ({ raw, period }) => {
   // ── Row builder ──────────────────────────────────────────────────────────
   const rows = [];
   const sec = title => rows.push({ isSection: true, title });
-  const row = (label, getVal, fmt, getTrend) => {
+  const row = (label, getVal, fmt, getTrend, curVal) => {
     const rawVals = YEARS.map(getVal);
-    rows.push({ label, values: rawVals.map(fmt), rawValues: rawVals, fmt, trend: getTrend(rawVals) });
+    rows.push({ label, values: rawVals.map(fmt), rawValues: rawVals, fmt, trend: getTrend(rawVals), curVal });
   };
 
   // Compte de résultat
   sec("Compte de résultat");
   row("Chiffre d'affaires",
     y => byYear(inc, y).revenue, fM,
-    v => trendCAGR(v));
+    v => trendCAGR(v), curInc.revenue);
   row("Résultat net",
     y => byYear(inc, y).netIncome, fM,
-    v => trendCAGR(v));
+    v => trendCAGR(v), curInc.netIncome);
   row("Marge nette",
     y => { const r = byYear(inc, y); return r.netIncome && r.revenue ? r.netIncome / r.revenue : null; }, fP,
-    v => trendLevel(v, 0.20, 0.10));
+    v => trendLevel(v, 0.20, 0.10),
+    curInc.netIncome && curInc.revenue ? curInc.netIncome / curInc.revenue : null);
   row("EBITDA",
     y => byYear(inc, y).ebitda, fM,
-    v => trendCAGR(v));
+    v => trendCAGR(v), curInc.ebitda);
   row("BPA (dilué)",
     y => byYear(inc, y).eps, fE,
-    v => trendCAGR(v));
+    v => trendCAGR(v), curInc.eps);
   row("Actions en circulation",
     y => byYear(inc, y).weightedAverageShsOut, fSh,
-    v => trendDir(v, true)); // décroissant = bien
+    v => trendDir(v, true), curInc.weightedAverageShsOut);
 
   // Bilan
   sec("Bilan");
   row("Fonds propres",
     y => byYear(bal, y).totalStockholdersEquity, fM,
-    v => trendDir(v));
+    v => trendDir(v), curBal.totalStockholdersEquity);
   row("Dette totale",
     y => byYear(bal, y).totalDebt, fM,
-    v => trendDir(v, true));
+    v => trendDir(v, true), curBal.totalDebt);
   row("Dette nette",
     y => byYear(bal, y).netDebt, fM,
-    v => trendDir(v, true));
+    v => trendDir(v, true), curBal.netDebt);
   row("Dette nette / EBITDA",
     y => { const b = byYear(bal, y); const i = byYear(inc, y); return b.totalDebt && i.ebitda && i.ebitda > 0 ? b.totalDebt / i.ebitda : null; }, fR,
-    v => trendLevel(v, 2, 3, true)); // < 2x = bien
+    v => trendLevel(v, 2, 3, true),
+    curBal.totalDebt && curInc.ebitda && curInc.ebitda > 0 ? curBal.totalDebt / curInc.ebitda : null);
 
   // Cash Flow
   sec("Cash Flow");
   row("Free Cash Flow",
     y => byYear(cf, y).freeCashFlow, fM,
-    v => trendCAGR(v));
+    v => trendCAGR(v), curCF.freeCashFlow);
   row("Capex",
     y => { const r = byYear(cf, y); return r.capitalExpenditure != null ? Math.abs(r.capitalExpenditure) : null; }, fM,
-    v => trendDir(v)); // croissant = investissement = neutre→bien
+    v => trendDir(v),
+    curCF.capitalExpenditure != null ? Math.abs(curCF.capitalExpenditure) : null);
   row("Dividendes versés",
     y => { const r = byYear(cf, y); return r.dividendsPaid != null ? Math.abs(r.dividendsPaid) : null; }, fM,
-    v => trendDir(v));
+    v => trendDir(v),
+    curCF.dividendsPaid != null ? Math.abs(curCF.dividendsPaid) : null);
 
   // Rentabilité
   sec("Rentabilité");
   row("ROIC",
     y => byYear(met, y).roic, fP,
-    v => trendLevel(v, 0.20, 0.15));
+    v => trendLevel(v, 0.20, 0.15), curMet.roic);
   row("ROE",
     y => byYear(met, y).roe, fP,
-    v => trendLevel(v, 0.15, 0.10));
+    v => trendLevel(v, 0.15, 0.10), curMet.roe);
   row("PER historique",
     y => byYear(met, y).peRatio, fR,
-    v => trendDir(v, true)); // baisse = moins cher
+    v => trendDir(v, true), curMet.peRatio);
   row("Payout Ratio",
     y => byYear(rat, y).payoutRatio, fP,
-    v => trendLevel(v, 0.40, 0.60, true)); // < 40% = bien
+    v => trendLevel(v, 0.40, 0.60, true), curRat.payoutRatio);
   row("Dette / Fonds propres",
     y => byYear(rat, y).debtToEquity, fR,
-    v => trendLevel(v, 1, 2, true)); // < 1x = bien
+    v => trendLevel(v, 1, 2, true), curRat.debtToEquity);
 
   return (
     <div className="fin-table-wrap">
@@ -183,6 +197,7 @@ const FinancialTable = ({ raw, period }) => {
           <tr>
             <th className="ft-label" />
             {YEARS.map(y => <th key={y} className="ft-year">{y}</th>)}
+            <th className="ft-year ft-year-current">{latestYear} ★</th>
             <th className="ft-trend">Tendance</th>
           </tr>
         </thead>
@@ -190,7 +205,7 @@ const FinancialTable = ({ raw, period }) => {
           {rows.map((r, i) => {
             if (r.isSection) return (
               <tr key={i} className="ft-section">
-                <td colSpan={YEARS.length + 2}>{r.title}</td>
+                <td colSpan={YEARS.length + 3}>{r.title}</td>
               </tr>
             );
             const isOpen = expandedRow === i;
@@ -198,11 +213,12 @@ const FinancialTable = ({ raw, period }) => {
               <tr key={i} className="ft-row" style={{ cursor: "pointer" }} onClick={() => setExpandedRow(isOpen ? null : i)}>
                 <td className="ft-label">{r.label}</td>
                 {r.values.map((v, j) => <td key={j} className="ft-data">{v}</td>)}
+                <td className="ft-data ft-data-current">{r.fmt(r.curVal)}</td>
                 <td className={`ft-trend ${r.trend.cls}`}>{r.trend.label}</td>
               </tr>,
               isOpen && (
                 <tr key={`chart-${i}`}>
-                  <td colSpan={YEARS.length + 2} style={{ padding: 0, borderBottom: "1px solid var(--border)" }}>
+                  <td colSpan={YEARS.length + 3} style={{ padding: 0, borderBottom: "1px solid var(--border)" }}>
                     <FinChart years={YEARS} rawValues={r.rawValues} fmt={r.fmt} />
                   </td>
                 </tr>

@@ -66,6 +66,8 @@
 .ft-row:last-child td { border-bottom: none; }
 .ft-row td.ft-label { text-align: left; color: var(--text); font-size: 12px; font-weight: 400; padding-left: 0; }
 .ft-row td.ft-data  { color: var(--text); font-weight: 500; }
+.ft-row td.ft-data-current { color: var(--text); font-weight: 700; }
+.fin-table thead th.ft-year-current { color: var(--text); font-weight: 700; }
 .ft-row td.ft-trend { font-weight: 600; font-size: 12px; }
 .ft-row td.ft-trend.green  { color: var(--green); }
 .ft-row td.ft-trend.orange { color: var(--orange); }
