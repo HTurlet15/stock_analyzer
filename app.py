@@ -110,29 +110,15 @@ def av_balance(symbol):
     reports = av_fetch(symbol, "BALANCE_SHEET")
     result = []
     for r in reports:
-        equity = (av_clean(r.get("totalShareholderEquity")) or
-                  av_clean(r.get("totalStockholdersEquity")) or
-                  av_clean(r.get("totalEquity")))
-        # Try combined field first, then sum long + short term debt
-        total_debt = av_clean(r.get("shortLongTermDebtTotal")) or av_clean(r.get("totalDebt"))
-        if total_debt is None:
-            long_d  = av_clean(r.get("longTermDebt")) or av_clean(r.get("longTermDebtNoncurrent")) or 0
-            short_d = (av_clean(r.get("shortTermDebt")) or
-                       av_clean(r.get("currentDebt")) or
-                       av_clean(r.get("currentPortionOfLongtermDebt")) or 0)
-            if long_d or short_d:
-                total_debt = (long_d or 0) + (short_d or 0) or None
-        cash = (av_clean(r.get("cashAndShortTermInvestments")) or
-                av_clean(r.get("cashAndCashEquivalentsAtCarryingValue")) or
-                av_clean(r.get("cash")))
-        shares = av_clean(r.get("commonStockSharesOutstanding"))
-        net_debt = (total_debt - cash) if total_debt is not None and cash is not None else None
+        equity     = av_clean(r.get("totalShareholderEquity"))
+        total_debt = av_clean(r.get("shortLongTermDebtTotal")) or av_clean(r.get("longTermDebt"))
+        cash       = av_clean(r.get("cashAndShortTermInvestments")) or av_clean(r.get("cashAndCashEquivalentsAtCarryingValue"))
+        net_debt   = (total_debt - cash) if total_debt is not None and cash is not None else None
         result.append({
             "date":                    r.get("fiscalDateEnding", "")[:10],
             "totalStockholdersEquity": equity,
             "totalDebt":               total_debt,
             "netDebt":                 net_debt,
-            "sharesOutstanding":       shares,
         })
     return result
 
@@ -387,21 +373,6 @@ def get_stock(symbol):
             cashflow = merge_data(av_cf,   cashflow)
         except Exception:
             pass
-
-    # ── Fill missing shares/EPS in income from balance sheet ─────────────────
-    for item in income:
-        bal_row = get_for_year(balance, item["date"])
-        # Use balance-sheet shares if income doesn't have them
-        if item.get("weightedAverageShsOut") is None:
-            shares_bal = bal_row.get("sharesOutstanding")
-            if shares_bal:
-                item["weightedAverageShsOut"] = shares_bal
-        # Compute EPS from net income / shares if not available
-        if item.get("eps") is None:
-            shares = item.get("weightedAverageShsOut")
-            net_inc = item.get("netIncome")
-            if net_inc is not None and shares and shares > 0:
-                item["eps"] = clean(net_inc / shares)
 
     # ── Price history (max range to cover AV's 20-year data) ─────────────────
     price_history = {}
