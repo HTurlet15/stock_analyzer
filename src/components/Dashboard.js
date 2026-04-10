@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { fetchAllData } from "../api";
 import { processData, calculateDCF } from "../utils";
 import { loadThresholds, saveThresholds, DEFAULT_THRESHOLDS, THRESHOLD_CONFIGS } from "../thresholds";
+import { computePositionStats } from "./PositionsSection";
 import StockCard from "./StockCard";
 import "./Dashboard.css";
 
@@ -246,6 +247,40 @@ export default function Dashboard() {
         </div>
         {error && <p className="dash-error">{error}</p>}
       </div>
+
+      {/* ── Portfolio summary ── */}
+      {(() => {
+        const withPos = watchlist.filter(s => s.positions?.length);
+        if (!withPos.length) return null;
+        let totalCost = 0, totalValue = 0, totalDivs = 0;
+        withPos.forEach(s => {
+          const st = computePositionStats(s.positions, s.price, s.dividendPerShare);
+          if (!st) return;
+          totalCost  += st.costBasis;
+          totalValue += st.currentValue ?? st.costBasis;
+          totalDivs  += st.annualDividend ?? 0;
+        });
+        const totalGain    = totalValue - totalCost;
+        const totalGainPct = totalCost > 0 ? totalGain / totalCost : null;
+        const yoc          = totalCost > 0 ? totalDivs / totalCost : null;
+        const fmt = v => v >= 1e6 ? `$${(v/1e6).toFixed(2)}M` : `$${v.toFixed(2)}`;
+        const gainColor = totalGain >= 0 ? "green" : "red";
+        return (
+          <div className="portfolio-strip fade-in">
+            <span className="portfolio-strip-title">Portefeuille</span>
+            <div className="portfolio-strip-items">
+              <div className="pf-item"><span className="pf-label">Investi</span><span className="pf-val">{fmt(totalCost)}</span></div>
+              <div className="pf-item"><span className="pf-label">Valeur actuelle</span><span className="pf-val">{fmt(totalValue)}</span></div>
+              <div className="pf-item">
+                <span className="pf-label">Plus-value</span>
+                <span className={`pf-val ${gainColor}`}>{totalGain >= 0 ? "+" : ""}{fmt(totalGain)} ({totalGainPct != null ? `${totalGainPct >= 0 ? "+" : ""}${(totalGainPct*100).toFixed(1)}%` : "—"})</span>
+              </div>
+              <div className="pf-item"><span className="pf-label">Dividendes / an</span><span className="pf-val green">{fmt(totalDivs)}</span></div>
+              <div className="pf-item"><span className="pf-label">Yield on Cost</span><span className={`pf-val ${yoc >= 0.04 ? "green" : yoc >= 0.02 ? "orange" : "red"}`}>{yoc != null ? `${(yoc*100).toFixed(2)}%` : "—"}</span></div>
+            </div>
+          </div>
+        );
+      })()}
 
       {ranked.filter((s) => s.assumptions?.base).length > 1 && (
         <div className="ranking-banner fade-in">

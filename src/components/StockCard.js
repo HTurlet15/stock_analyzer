@@ -7,6 +7,7 @@ import ManagementSection from "./ManagementSection";
 import DCFSection from "./DCFSection";
 import SyntheseSection from "./SyntheseSection";
 import ValuationSection from "./ValuationSection";
+import PositionsSection from "./PositionsSection";
 import "./StockCard.css";
 
 const FinChart = ({ years, rawValues, fmt }) => {
@@ -252,6 +253,7 @@ const TABS = [
   { id: "dcf",         label: "DCF" },
   { id: "moat",        label: "MOAT" },
   { id: "management",  label: "Management" },
+  { id: "positions",   label: "Positions" },
 ];
 
 // ── StockCard ────────────────────────────────────────────────────────────────
@@ -403,9 +405,10 @@ export default function StockCard({ stock, thresholds, onRemove, onUpdate, onRef
             <ValuationSection stock={s} thresholds={thresholds} />
           )}
 
-          {activeTab === "dcf"        && <DCFSection      stock={stock} thresholds={thresholds} onUpdate={onUpdate} />}
-          {activeTab === "moat"       && <MoatSection     stock={stock} onUpdate={onUpdate} />}
-          {activeTab === "management" && <ManagementSection stock={stock} onUpdate={onUpdate} />}
+          {activeTab === "dcf"        && <DCFSection        stock={stock} thresholds={thresholds} onUpdate={onUpdate} />}
+          {activeTab === "moat"       && <MoatSection       stock={stock} onUpdate={onUpdate} />}
+          {activeTab === "management" && <ManagementSection  stock={stock} onUpdate={onUpdate} />}
+          {activeTab === "positions"  && <PositionsSection   stock={stock} onUpdate={onUpdate} />}
         </div>
       )}
     </div>

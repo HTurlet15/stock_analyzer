@@ -1,0 +1,40 @@
+.pos-section { display: flex; flex-direction: column; gap: 20px; padding: 24px; }
+
+/* ── Form ────────────────────────────────────────────────────────────────── */
+.pos-form-card { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 10px; padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; }
+.pos-form-title { font-size: 12px; font-weight: 600; color: var(--text); }
+.pos-form-row { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.pos-label { display: flex; flex-direction: column; gap: 5px; font-size: 11px; color: var(--text-muted); }
+.pos-input { padding: 7px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text); font-family: 'Inter', sans-serif; font-size: 12px; width: 140px; outline: none; transition: border-color 0.15s; }
+.pos-input:focus { border-color: var(--accent); }
+.pos-input[type="date"] { width: 150px; }
+.pos-add-btn { padding: 8px 18px; border-radius: 7px; border: none; background: var(--accent); color: #fff; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; align-self: flex-end; }
+.pos-add-btn:hover { opacity: 0.88; }
+.pos-error { font-size: 11px; color: var(--red); }
+.pos-empty { font-size: 13px; color: var(--text-dim); text-align: center; padding: 24px 0; }
+
+/* ── Stats grid ──────────────────────────────────────────────────────────── */
+.pos-stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+@media (max-width: 860px) { .pos-stats-grid { grid-template-columns: repeat(2, 1fr); } }
+.pos-stat { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
+.pos-stat-label { font-size: 11px; color: var(--text-muted); }
+.pos-stat-value { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); }
+.pos-stat-value.green  { color: var(--green); }
+.pos-stat-value.orange { color: var(--orange); }
+.pos-stat-value.red    { color: var(--red); }
+.pos-stat-sub { font-size: 12px; font-weight: 400; }
+
+/* ── History table ───────────────────────────────────────────────────────── */
+.pos-history { display: flex; flex-direction: column; gap: 8px; }
+.pos-history-title { font-size: 12px; font-weight: 600; color: var(--text); }
+.pos-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.pos-table thead th { padding: 7px 10px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.pos-table thead th:first-child { text-align: left; }
+.pos-table tbody td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: right; font-variant-numeric: tabular-nums; color: var(--text-muted); white-space: nowrap; }
+.pos-table tbody td:first-child { text-align: left; color: var(--text); }
+.pos-table tbody tr:last-child td { border-bottom: none; }
+.pos-table tbody tr:hover td { background: var(--bg-elevated); }
+.pos-table td.green { color: var(--green); font-weight: 600; }
+.pos-table td.red   { color: var(--red);   font-weight: 600; }
+.pos-delete-btn { background: transparent; border: none; color: var(--text-dim); cursor: pointer; font-size: 11px; padding: 2px 6px; border-radius: 4px; transition: all 0.15s; }
+.pos-delete-btn:hover { color: var(--red); background: var(--red-dim); }
