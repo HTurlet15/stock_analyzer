@@ -172,4 +172,4 @@ stock-analyzer/
 
 ## License
 
-MIT
+MIT © 2026 Hugo Turlet — see [LICENSE](LICENSE) for details.
