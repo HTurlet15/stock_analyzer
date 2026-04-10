@@ -16,7 +16,8 @@ A self-hosted fundamental analysis tool for stocks. Search any ticker, explore 2
 - **Synthesis score** — Weighted health score across growth, profitability, debt, and shareholder value criteria
 - **Analyst data** — Consensus price target, EPS & revenue estimates, and analyst rating breakdown
 - **AI analysis** — One-click Moat and Management analysis powered by Claude Sonnet + Tavily web search; suggests a score per criterion with written justification, sourced from the latest web results
-- **Portfolio persistence** — Your watchlist is automatically saved to browser storage; it survives page refreshes, browser restarts, and backend restarts. Each stock has a ↻ refresh button to pull fresh market data on demand
+- **Portfolio tracking** — Log your purchases (date, quantity, price) per stock. Automatically computes average cost, capital gain/loss, annual dividend income, and Yield on Cost. A summary strip at the top of the dashboard shows your total invested, current value, global P&L, total dividends expected per year, and portfolio-level YoC
+- **Portfolio persistence** — Your entire portfolio (watchlist, positions, moat/management scores, DCF assumptions) is automatically saved to browser storage; it survives page refreshes, browser restarts, and backend restarts. Each stock has a ↻ refresh button to pull fresh market data on demand
 - **Configurable thresholds** — All scoring thresholds (ROIC, ROE, PER, etc.) are adjustable via the settings panel
 - **Dark / light mode** — Automatic via system preference
 - **Dual data sources** — Alpha Vantage as primary (up to 20 years), yfinance fills any gaps field-by-field
@@ -195,7 +196,8 @@ stock-analyzer/
         ├── ValuationSection.js/css  # Valuation ratios, sparkline charts, period selector
         ├── DCFSection.js/css        # DCF calculator with bear/base/bull scenarios
         ├── MoatSection.js/css       # Competitive moat analysis + AI scoring
-        └── ManagementSection.js/css # Management quality analysis + AI scoring
+        ├── ManagementSection.js/css # Management quality analysis + AI scoring
+        └── PositionsSection.js/css  # Portfolio positions, P&L, yield on cost
 ```
 
 ---
