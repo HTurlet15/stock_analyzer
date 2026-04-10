@@ -5,9 +5,12 @@ import time
 import datetime
 import requests
 import pandas as pd
+from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 import yfinance as yf
+
+load_dotenv()
 
 # ── Alpha Vantage config ──────────────────────────────────────────────────────
 AV_KEY  = os.environ.get("AV_API_KEY", "")
