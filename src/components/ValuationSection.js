@@ -69,7 +69,7 @@ const buildRows = (t) => [
     label: "Price / Sales",
     fmt: v => v != null ? `${num(v, 1)}x` : "—",
     colorFn: () => "dim",
-    chartColor: "var(--purple)",
+    chartColor: "var(--blue)",
     chartFmt: v => `${num(v, 1)}x`,
   },
   {
@@ -77,7 +77,7 @@ const buildRows = (t) => [
     label: "Price / Book",
     fmt: v => v != null ? `${num(v, 1)}x` : "—",
     colorFn: () => "dim",
-    chartColor: "var(--purple)",
+    chartColor: "var(--blue)",
     chartFmt: v => `${num(v, 1)}x`,
   },
   {
