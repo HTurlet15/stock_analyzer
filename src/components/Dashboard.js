@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { fetchAllData } from "../api";
 import { processData, calculateDCF } from "../utils";
 import { loadThresholds, saveThresholds, DEFAULT_THRESHOLDS, THRESHOLD_CONFIGS } from "../thresholds";
@@ -102,12 +102,21 @@ function SettingsPanel({ thresholds, onChange, onClose }) {
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
-  const [watchlist, setWatchlist] = useState([]);
+  const [watchlist, setWatchlist] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("sa_watchlist") || "[]"); }
+    catch { return []; }
+  });
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [thresholds, setThresholds] = useState(() => loadThresholds());
   const [showSettings, setShowSettings] = useState(false);
+
+  // Persist watchlist to localStorage on every change
+  useEffect(() => {
+    try { localStorage.setItem("sa_watchlist", JSON.stringify(watchlist)); }
+    catch { /* storage full or unavailable */ }
+  }, [watchlist]);
 
   const handleThresholdsChange = (t) => {
     setThresholds(t);
@@ -154,6 +163,36 @@ export default function Dashboard() {
   };
 
   const removeStock = (symbol) => setWatchlist((prev) => prev.filter((s) => s.symbol !== symbol));
+
+  const refreshStock = async (symbol) => {
+    setWatchlist((prev) => prev.map((s) => s.symbol === symbol ? { ...s, refreshing: true } : s));
+    try {
+      const raw = await fetchAllData(symbol);
+      const processed = processData(raw);
+      const tr = thresholds.fairValueTargetReturn ?? 0.10;
+      setWatchlist((prev) => prev.map((s) => {
+        if (s.symbol !== symbol) return s;
+        const epsG = processed.analystEpsGrowth ?? processed.epsGrowth ?? 0.08;
+        const peEx = processed.peHistorical ?? processed.peCurrent ?? 20;
+        const divG = processed.divGrowth ?? 0.05;
+        const dcfAssumptions = {
+          years: 3,
+          bear: { epsGrowth: Math.max(epsG * 0.6, 0.01), peExit: peEx * 0.85, divGrowthRate: divG * 0.6 },
+          base: { epsGrowth: epsG, peExit: peEx, divGrowthRate: divG },
+          bull: { epsGrowth: epsG * 1.4, peExit: peEx * 1.2, divGrowthRate: divG * 1.4 },
+        };
+        const assumptions = {
+          bear: calculateDCF(processed, dcfAssumptions.bear, 3, tr),
+          base: calculateDCF(processed, dcfAssumptions.base, 3, tr),
+          bull: calculateDCF(processed, dcfAssumptions.bull, 3, tr),
+        };
+        // Keep manual annotations (moat, management, custom dcfAssumptions)
+        return { ...s, ...processed, raw, assumptions, dcfAssumptions: s.dcfAssumptions || dcfAssumptions, refreshing: false, lastUpdated: new Date().toISOString() };
+      }));
+    } catch {
+      setWatchlist((prev) => prev.map((s) => s.symbol === symbol ? { ...s, refreshing: false } : s));
+    }
+  };
 
   const updateStock = (symbol, updates) =>
     setWatchlist((prev) => prev.map((s) => (s.symbol === symbol ? { ...s, ...updates } : s)));
@@ -240,7 +279,7 @@ export default function Dashboard() {
 
       <div className="stock-list">
         {watchlist.map((stock) => (
-          <StockCard key={stock.symbol} stock={stock} thresholds={thresholds} onRemove={removeStock} onUpdate={updateStock} />
+          <StockCard key={stock.symbol} stock={stock} thresholds={thresholds} onRemove={removeStock} onUpdate={updateStock} onRefresh={refreshStock} />
         ))}
       </div>
     </div>

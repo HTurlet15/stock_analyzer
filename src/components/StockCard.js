@@ -256,7 +256,7 @@ const TABS = [
 
 // ── StockCard ────────────────────────────────────────────────────────────────
 
-export default function StockCard({ stock, thresholds, onRemove, onUpdate }) {
+export default function StockCard({ stock, thresholds, onRemove, onUpdate, onRefresh }) {
   const [expanded, setExpanded] = useState(true);
   const [activeTab, setActiveTab] = useState("synthese");
   const [period, setPeriod] = useState(5);
@@ -312,6 +312,9 @@ export default function StockCard({ stock, thresholds, onRemove, onUpdate }) {
               <span className="return-label">base/an</span>
             </div>
           )}
+          <button className="btn-refresh" title="Actualiser les données" onClick={(e) => { e.stopPropagation(); onRefresh(s.symbol); }} disabled={s.refreshing}>
+            {s.refreshing ? "…" : "↻"}
+          </button>
           <button className="btn-remove" onClick={(e) => { e.stopPropagation(); onRemove(s.symbol); }}>✕</button>
           <span className="chevron">{expanded ? "▲" : "▼"}</span>
         </div>

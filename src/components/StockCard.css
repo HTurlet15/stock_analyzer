@@ -29,6 +29,9 @@
 .return-val { font-size: 14px; font-weight: 600; color: var(--accent); font-variant-numeric: tabular-nums; }
 .return-label { font-size: 10px; color: var(--text-muted); }
 
+.btn-refresh { background: transparent; border: none; color: var(--text-dim); cursor: pointer; padding: 5px 7px; border-radius: 5px; font-size: 14px; transition: all 0.15s; line-height: 1; }
+.btn-refresh:hover:not(:disabled) { color: var(--accent); background: var(--accent-dim); }
+.btn-refresh:disabled { opacity: 0.4; cursor: not-allowed; }
 .btn-remove { background: transparent; border: none; color: var(--text-dim); cursor: pointer; padding: 5px 7px; border-radius: 5px; font-size: 12px; transition: all 0.15s; line-height: 1; }
 .btn-remove:hover { color: var(--red); background: var(--red-dim); }
 .chevron { color: var(--text-dim); font-size: 11px; }
