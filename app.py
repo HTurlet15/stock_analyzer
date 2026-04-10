@@ -1,10 +1,11 @@
 import math
 import os
+import json
 import time
 import datetime
 import requests
 import pandas as pd
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 import yfinance as yf
 
@@ -15,6 +16,10 @@ AV_BASE = "https://www.alphavantage.co/query"
 # ── Financial Modeling Prep config ────────────────────────────────────────────
 FMP_KEY  = os.environ.get("REACT_APP_FMP_API_KEY", "") or os.environ.get("FMP_API_KEY", "")
 FMP_BASE = "https://financialmodelingprep.com/api/v3"
+
+# ── AI analysis config ────────────────────────────────────────────────────────
+ANTHROPIC_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+TAVILY_KEY    = os.environ.get("TAVILY_API_KEY", "")
 
 app = Flask(__name__)
 CORS(app, origins=["http://localhost:3000"])
@@ -562,6 +567,170 @@ def debug_rows(symbol):
         result["cashflow_rows"] = list(ticker.cash_flow.index)
     except Exception as e:
         result["cashflow_rows"] = str(e)
+    return jsonify(result)
+
+
+@app.route("/api/analyze/<symbol>/<analysis_type>", methods=["POST"])
+def analyze_stock(symbol, analysis_type):
+    if not ANTHROPIC_KEY or not TAVILY_KEY:
+        return jsonify({"error": "ANTHROPIC_API_KEY ou TAVILY_API_KEY manquant dans .env"}), 400
+    if analysis_type not in ("moat", "management"):
+        return jsonify({"error": "Type invalide"}), 400
+
+    data        = request.get_json() or {}
+    company     = data.get("companyName", symbol)
+    sector      = data.get("sector", "")
+    industry    = data.get("industry", "")
+    fin_summary = data.get("financialSummary", {})
+
+    # ── Tavily web search ─────────────────────────────────────────────────────
+    from tavily import TavilyClient
+    tavily = TavilyClient(api_key=TAVILY_KEY)
+
+    if analysis_type == "moat":
+        queries = [
+            f"{company} competitive advantage moat market position 2024 2025",
+            f"{company} brand pricing power switching costs network effect",
+            f"{company} market share competitors barriers to entry",
+        ]
+    else:
+        queries = [
+            f"{company} CEO annual letter shareholders 2024 2025",
+            f"{company} management capital allocation acquisitions buybacks 2024 2025",
+            f"{company} CEO compensation strategy long term vision",
+        ]
+
+    search_context = ""
+    sources = []
+    for q in queries:
+        try:
+            r = tavily.search(query=q, search_depth="basic", max_results=3)
+            for item in r.get("results", []):
+                title   = item.get("title", "")
+                content = item.get("content", "")[:400]
+                url     = item.get("url", "")
+                search_context += f"\n---\n{title}\n{content}\n"
+                if url:
+                    sources.append({"title": title, "url": url})
+        except Exception:
+            pass
+
+    # ── Build financial context string ────────────────────────────────────────
+    fin_ctx = ""
+    if fin_summary:
+        roic      = fin_summary.get("roicAvg")
+        margin    = fin_summary.get("netMarginAvg")
+        rev_cagr  = fin_summary.get("revenueCagr")
+        roe       = fin_summary.get("roeAvg")
+        debt_ebit = fin_summary.get("debtToEbitdaAvg")
+        fin_ctx = f"""
+Données financières (moyennes 5-10 ans) :
+- ROIC moyen : {f"{roic*100:.1f}%" if roic is not None else "N/A"}
+- ROE moyen : {f"{roe*100:.1f}%" if roe is not None else "N/A"}
+- Marge nette moyenne : {f"{margin*100:.1f}%" if margin is not None else "N/A"}
+- Croissance CA annualisée : {f"{rev_cagr*100:.1f}%" if rev_cagr is not None else "N/A"}
+- Dette nette / EBITDA moyen : {f"{debt_ebit:.1f}x" if debt_ebit is not None else "N/A"}
+"""
+
+    # ── Build Claude prompt ───────────────────────────────────────────────────
+    if analysis_type == "moat":
+        system = """Tu es un analyste financier expert en analyse fondamentale style Warren Buffett / Morningstar.
+Tu analyses le MOAT (avantage concurrentiel durable) d'entreprises cotées.
+Tu réponds UNIQUEMENT en JSON valide, sans markdown, sans texte avant ou après."""
+
+        user_prompt = f"""Analyse le MOAT de {company} ({sector} — {industry}).
+
+{fin_ctx}
+
+INFORMATIONS RÉCENTES (web) :
+{search_context[:3000]}
+
+Évalue chacune des 5 catégories de MOAT sur une échelle 0-3 :
+- 0 = Absent
+- 1 = Faible
+- 2 = Modéré
+- 3 = Fort
+
+Catégories :
+- intangibles : Actifs Intangibles (marque avec pricing power, brevets, licences monopolistiques)
+- switching : Coûts de Changement (coût de migration client insupportable)
+- network : Effet de Réseau (valeur croît avec le nombre d'utilisateurs)
+- cost : Avantage de Coût (économies d'échelle inatteignables par la concurrence)
+- scale : Échelle Efficiente (marché trop petit pour deux acteurs rentables)
+
+Réponds avec ce JSON exact :
+{{
+  "summary": "Synthèse globale du moat en 3-4 phrases",
+  "categories": {{
+    "intangibles": {{"score": 0, "analysis": "Explication en 2-3 phrases avec données concrètes"}},
+    "switching":   {{"score": 0, "analysis": "..."}},
+    "network":     {{"score": 0, "analysis": "..."}},
+    "cost":        {{"score": 0, "analysis": "..."}},
+    "scale":       {{"score": 0, "analysis": "..."}}
+  }},
+  "sources": ["Titre de la source 1", "Titre de la source 2"]
+}}"""
+
+    else:  # management
+        system = """Tu es un analyste financier expert en évaluation de la qualité des dirigeants d'entreprises cotées.
+Tu analyses le management selon des critères précis basés sur les actes, pas les discours.
+Tu réponds UNIQUEMENT en JSON valide, sans markdown, sans texte avant ou après."""
+
+        user_prompt = f"""Analyse la qualité du management de {company} ({sector}).
+
+{fin_ctx}
+
+INFORMATIONS RÉCENTES (web) :
+{search_context[:3000]}
+
+Évalue chacun des 6 critères sur une échelle 0-3 :
+- 0 = Red flag
+- 1 = Passable
+- 2 = Bon
+- 3 = Excellent
+
+Critères :
+- coherence : Cohérence entre le discours et les actes (promesses tenues, objectifs atteints)
+- discipline : Discipline financière (dette maîtrisée, acquisitions créatrices de valeur)
+- vision : Vision long terme (investissement R&D, sacrifices court terme pour l'avenir)
+- alignment : Alignement avec les actionnaires (rémunération sur EPS/FCF, actionnariat management)
+- transparency : Transparence (reconnaissance des échecs, métriques cohérentes)
+- buybacks : Rachats d'actions intelligents (timing vs valeur intrinsèque)
+
+Réponds avec ce JSON exact :
+{{
+  "summary": "Synthèse globale du management en 3-4 phrases",
+  "criteria": {{
+    "coherence":    {{"score": 0, "analysis": "Explication en 2-3 phrases avec exemples concrets"}},
+    "discipline":   {{"score": 0, "analysis": "..."}},
+    "vision":       {{"score": 0, "analysis": "..."}},
+    "alignment":    {{"score": 0, "analysis": "..."}},
+    "transparency": {{"score": 0, "analysis": "..."}},
+    "buybacks":     {{"score": 0, "analysis": "..."}}
+  }},
+  "sources": ["Titre de la source 1", "Titre de la source 2"]
+}}"""
+
+    # ── Call Claude ───────────────────────────────────────────────────────────
+    import anthropic
+    client = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
+    msg = client.messages.create(
+        model="claude-sonnet-4-5",
+        max_tokens=2000,
+        system=system,
+        messages=[{"role": "user", "content": user_prompt}],
+    )
+    raw_text = msg.content[0].text.strip()
+
+    try:
+        result = json.loads(raw_text)
+    except json.JSONDecodeError:
+        # Try to extract JSON if Claude added any extra text
+        start = raw_text.find("{")
+        end   = raw_text.rfind("}") + 1
+        result = json.loads(raw_text[start:end])
+
+    result["searchSources"] = sources[:6]
     return jsonify(result)
 
 
