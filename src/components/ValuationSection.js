@@ -123,11 +123,14 @@ const buildRows = (t) => [
 
 export default function ValuationSection({ stock, thresholds: t }) {
   const [expandedRow, setExpandedRow] = useState(null);
+  const [period, setPeriod] = useState(5);
   const s = stock;
   const raw = s.raw || {};
 
-  // Ascending order for chart (oldest → newest)
-  const met = [...(raw.metrics || [])].sort((a, b) => new Date(a.date) - new Date(b.date));
+  // Ascending order for chart (oldest → newest), sliced by period
+  const allMet = [...(raw.metrics || [])].sort((a, b) => new Date(a.date) - new Date(b.date));
+  const LIMIT = period === "max" ? allMet.length : period;
+  const met = allMet.slice(-LIMIT);
   const YEARS = met.map(r => r.date.slice(0, 4));
 
   // Current-year values (live from quote)
@@ -162,6 +165,16 @@ export default function ValuationSection({ stock, thresholds: t }) {
 
   return (
     <div className="valuation-section">
+
+      {/* ── Period selector ─────────────────────────────────────────────────── */}
+      <div className="period-selector">
+        <span className="period-selector-label">Période</span>
+        {[3, 5, 10, 15, "max"].map(p => (
+          <button key={p} className={`period-btn ${period === p ? "active" : ""}`} onClick={() => setPeriod(p)}>
+            {p === "max" ? "Max" : `${p} ans`}
+          </button>
+        ))}
+      </div>
 
       {/* ── Current summary ─────────────────────────────────────────────────── */}
       <div className="val-summary">
