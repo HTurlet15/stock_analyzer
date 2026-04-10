@@ -208,16 +208,45 @@ def fmp_price_target(symbol):
 
 
 def merge_data(primary, secondary):
-    """Merge two annual lists. Primary source wins; secondary fills missing years."""
+    """Merge two annual lists field-by-field.
+
+    For each fiscal year present in primary, non-null primary values win;
+    secondary fills in any field that primary has as None.
+    Years only in secondary are appended as-is.
+    """
     if not primary:
         return secondary or []
     if not secondary:
         return primary
-    primary_years = {e["date"][:4] for e in primary if e.get("date")}
-    extra = [e for e in secondary if e.get("date", "")[:4] not in primary_years]
-    merged = primary + extra
-    merged.sort(key=lambda x: x.get("date", ""), reverse=True)
-    return merged
+
+    sec_by_year = {}
+    for item in secondary:
+        year = item.get("date", "")[:4]
+        if year:
+            sec_by_year[year] = item
+
+    primary_years = set()
+    result = []
+    for item in primary:
+        year = item.get("date", "")[:4]
+        primary_years.add(year)
+        sec = sec_by_year.get(year, {})
+        merged_item = dict(item)
+        for key, val in sec.items():
+            if key == "date":
+                continue
+            # Fill only if primary has None/missing for this field
+            if merged_item.get(key) is None and val is not None:
+                merged_item[key] = val
+        result.append(merged_item)
+
+    # Append years that exist only in secondary
+    for item in secondary:
+        if item.get("date", "")[:4] not in primary_years:
+            result.append(item)
+
+    result.sort(key=lambda x: x.get("date", ""), reverse=True)
+    return result
 
 
 def get_for_year(lst, date_str):
