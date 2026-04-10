@@ -33,14 +33,12 @@
 }
 .val-table thead th.vt-label { text-align: left; }
 
-.vt-row { cursor: pointer; transition: background 0.12s; }
-.vt-row:hover { background: var(--bg-card); }
-.vt-row.expanded { background: var(--bg-card); }
-.vt-row td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
+.vt-row { cursor: pointer; }
+.vt-row td { padding: 9px 12px; border-bottom: 1px solid var(--border); }
+.vt-row:hover td { background: var(--bg-elevated); }
 
 .vt-label { text-align: left; min-width: 140px; }
-.vt-label-text { color: var(--text-muted); }
-.vt-expand-icon { font-size: 9px; color: var(--text-dim); margin-left: 6px; }
+.vt-label-text { color: var(--text); font-size: 12px; font-weight: 400; }
 
 .vt-data { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-muted); white-space: nowrap; }
 .vt-data.green  { color: var(--green); }

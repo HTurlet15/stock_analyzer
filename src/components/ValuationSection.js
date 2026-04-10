@@ -241,7 +241,6 @@ export default function ValuationSection({ stock, thresholds: t }) {
                   >
                     <td className="vt-label">
                       <span className="vt-label-text">{row.label}</span>
-                      <span className="vt-expand-icon">{isExpanded ? "▲" : "▼"}</span>
                     </td>
                     {vals.map((v, i) => (
                       <td key={i} className="vt-data dim">
