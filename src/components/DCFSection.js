@@ -56,7 +56,7 @@ export default function DCFSection({ stock, thresholds, onUpdate }) {
   const hasAnalystData = s.analystEpsGrowth != null;
 
   const def = {
-    years: 5,
+    years: 3,
     bear: {
       epsGrowth: Math.max(((s.analystEpsGrowth || s.epsGrowth || 0.05)) * 0.6, 0.01),
       peExit: (s.peHistorical || s.peCurrent || 18) * 0.85,
