@@ -1,9 +1,16 @@
 import math
+import os
+import time
 import datetime
+import requests
 import pandas as pd
 from flask import Flask, jsonify
 from flask_cors import CORS
 import yfinance as yf
+
+# ── Alpha Vantage config ──────────────────────────────────────────────────────
+AV_KEY = os.environ.get("AV_API_KEY", "")
+AV_BASE = "https://www.alphavantage.co/query"
 
 app = Flask(__name__)
 CORS(app, origins=["http://localhost:3000"])
@@ -41,6 +48,105 @@ def col_date(col):
     if hasattr(col, "strftime"):
         return col.strftime("%Y-%m-%d")
     return str(col)[:10]
+
+
+# ── Alpha Vantage helpers ─────────────────────────────────────────────────────
+
+def av_clean(val):
+    """Convert AV string values ('None', '-', '') to float or None."""
+    if val is None or str(val).strip() in ("None", "-", "", "N/A"):
+        return None
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return None
+
+
+def av_fetch(symbol, function):
+    """Fetch one AV endpoint. Returns list of annualReports or []."""
+    if not AV_KEY:
+        return []
+    try:
+        r = requests.get(
+            AV_BASE,
+            params={"function": function, "symbol": symbol, "apikey": AV_KEY},
+            timeout=12,
+        )
+        data = r.json()
+        if "Note" in data or "Information" in data:
+            # Rate limit hit
+            return []
+        return data.get("annualReports", [])
+    except Exception:
+        return []
+
+
+def av_income(symbol):
+    reports = av_fetch(symbol, "INCOME_STATEMENT")
+    result = []
+    for r in reports:
+        ebitda = av_clean(r.get("ebitda"))
+        if ebitda is None:
+            op = av_clean(r.get("operatingIncome"))
+            da = av_clean(r.get("depreciationAndAmortization")) or av_clean(r.get("depreciation"))
+            if op is not None and da is not None:
+                ebitda = op + da
+        result.append({
+            "date":                  r.get("fiscalDateEnding", "")[:10],
+            "revenue":               av_clean(r.get("totalRevenue")),
+            "netIncome":             av_clean(r.get("netIncome")),
+            "ebitda":                ebitda,
+            "eps":                   av_clean(r.get("reportedEPS")) or av_clean(r.get("basicEPS")),
+            "weightedAverageShsOut": av_clean(r.get("commonStockSharesOutstanding")),
+        })
+    return result
+
+
+def av_balance(symbol):
+    reports = av_fetch(symbol, "BALANCE_SHEET")
+    result = []
+    for r in reports:
+        equity     = av_clean(r.get("totalShareholderEquity"))
+        total_debt = av_clean(r.get("shortLongTermDebtTotal")) or av_clean(r.get("longTermDebt"))
+        cash       = av_clean(r.get("cashAndShortTermInvestments")) or av_clean(r.get("cashAndCashEquivalentsAtCarryingValue"))
+        net_debt   = (total_debt - cash) if total_debt is not None and cash is not None else None
+        result.append({
+            "date":                    r.get("fiscalDateEnding", "")[:10],
+            "totalStockholdersEquity": equity,
+            "totalDebt":               total_debt,
+            "netDebt":                 net_debt,
+        })
+    return result
+
+
+def av_cashflow(symbol):
+    reports = av_fetch(symbol, "CASH_FLOW")
+    result = []
+    for r in reports:
+        op_cf  = av_clean(r.get("operatingCashflow"))
+        # AV capitalExpenditures is a positive outflow amount → make negative to match yfinance
+        capex_raw = av_clean(r.get("capitalExpenditures"))
+        capex  = -abs(capex_raw) if capex_raw is not None else None
+        fcf    = (op_cf + capex) if op_cf is not None and capex is not None else None
+        divs   = av_clean(r.get("dividendPayoutCommonStock")) or av_clean(r.get("dividendPayout"))
+        result.append({
+            "date":               r.get("fiscalDateEnding", "")[:10],
+            "freeCashFlow":       fcf,
+            "capitalExpenditure": capex,
+            "dividendsPaid":      -abs(divs) if divs is not None else None,
+        })
+    return result
+
+
+def merge_data(yf_list, av_list):
+    """Merge yfinance (priority) + AV (historical). Dedup by fiscal year."""
+    if not av_list:
+        return yf_list
+    yf_years = {e["date"][:4] for e in yf_list if e.get("date")}
+    extra = [e for e in av_list if e.get("date", "")[:4] not in yf_years]
+    merged = yf_list + extra
+    merged.sort(key=lambda x: x.get("date", ""), reverse=True)
+    return merged
 
 
 @app.route("/api/health")
@@ -312,6 +418,20 @@ def get_stock(symbol):
             dividends_hist.sort(key=lambda x: x["date"], reverse=True)
     except Exception:
         pass
+
+    # ── Alpha Vantage — extend history to 10+ years ───────────────────────────
+    if AV_KEY:
+        try:
+            av_inc = av_income(symbol)
+            time.sleep(0.5)           # stay within 5 req/min
+            av_bal = av_balance(symbol)
+            time.sleep(0.5)
+            av_cf  = av_cashflow(symbol)
+            income   = merge_data(income,   av_inc)
+            balance  = merge_data(balance,  av_bal)
+            cashflow = merge_data(cashflow, av_cf)
+        except Exception:
+            pass                      # AV failure never breaks the response
 
     return jsonify({
         "quote":     quote,

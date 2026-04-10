@@ -50,5 +50,11 @@
 .scenario-details { display: flex; flex-direction: column; gap: 4px; }
 .sd-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; padding: 3px 0; border-bottom: 1px solid var(--border); }
 .sd-row.total { font-weight: 600; color: var(--text); border-bottom: none; padding-top: 6px; }
+.sd-row.fair-value-row { font-weight: 600; color: var(--text); border-top: 1px solid var(--border); margin-top: 4px; padding-top: 6px; }
+.fv-price { font-weight: 700; }
+.sd-row.mos-row { border-bottom: none; font-size: 10px; padding-top: 2px; }
+.sd-row.mos-row.green { color: var(--green); }
+.sd-row.mos-row.orange { color: var(--orange); }
+.sd-row.mos-row.red { color: var(--red); }
 
 .dcf-disclaimer { font-size: 11px; color: var(--text-muted); background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; line-height: 1.6; }

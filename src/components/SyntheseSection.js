@@ -63,7 +63,7 @@ export default function SyntheseSection({ stock, thresholds: t }) {
     peExit,
     divGrowthRate: s.divGrowth ?? 0,
   };
-  const dcf = calculateDCF(s, dcfAssumptions, 5);
+  const dcf = calculateDCF(s, dcfAssumptions, 3);
   const dcfColor = dcf
     ? (dcf.returnWithDivs >= 0.10 ? "green" : dcf.returnWithDivs >= 0.07 ? "orange" : "red")
     : "dim";
@@ -202,7 +202,7 @@ export default function SyntheseSection({ stock, thresholds: t }) {
 
           <div className="syn-divider" />
 
-          <p className="syn-col-title">DCF rapide — Scénario Base (5 ans)</p>
+          <p className="syn-col-title">DCF rapide — Scénario Base (3 ans)</p>
           {dcf ? (
             <>
               <MetricRow
@@ -211,12 +211,15 @@ export default function SyntheseSection({ stock, thresholds: t }) {
                 color={dcfColor}
               />
               <MetricRow
-                label="Prix cible (BPA × PER sortie)"
-                value={`$${num(dcf.priceFuture, 0)}`}
-                color="dim"
+                label="Fair value (10%/an cible)"
+                value={`$${num(dcf.fairValue, 0)}`}
+                color={dcf.marginOfSafety > 0.15 ? "green" : dcf.marginOfSafety > 0 ? "orange" : "red"}
+                hint={dcf.marginOfSafety > 0
+                  ? `−${(dcf.marginOfSafety * 100).toFixed(0)}% sous cours`
+                  : `+${(Math.abs(dcf.marginOfSafety) * 100).toFixed(0)}% au-dessus cours`}
               />
               <p className="syn-dcf-note">
-                BPA utilisé : {s.analystEpsGrowth != null ? "consensus analystes" : "CAGR historique"} ({pct(epsGrowthUsed)}/an) · PER sortie : {num(peExit, 1)}x
+                BPA : {s.analystEpsGrowth != null ? "consensus analystes" : "CAGR historique"} ({pct(epsGrowthUsed)}/an) · PER sortie : {num(peExit, 1)}x
               </p>
             </>
           ) : (

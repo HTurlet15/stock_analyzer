@@ -2,8 +2,11 @@ import { useState, useEffect } from "react";
 import { calculateDCF, num, pct } from "../utils";
 import "./DCFSection.css";
 
-const ScenarioCard = ({ label, result, color, years }) => {
+const ScenarioCard = ({ label, result, color, years, currentPrice }) => {
   if (!result) return null;
+  const mos = result.marginOfSafety;
+  const mosColor = mos > 0.15 ? "green" : mos > 0 ? "orange" : "red";
+  const mosLabel = mos > 0 ? `−${(mos * 100).toFixed(0)}% sous fair value` : `+${(Math.abs(mos) * 100).toFixed(0)}% au-dessus fair value`;
   return (
     <div className={`scenario-card ${color}`}>
       <p className="scenario-label">{label}</p>
@@ -13,9 +16,17 @@ const ScenarioCard = ({ label, result, color, years }) => {
       </div>
       <div className="scenario-details">
         <div className="sd-row"><span>Sans dividendes</span><span>{(result.returnNoDivs * 100).toFixed(1)}%/an</span></div>
-        <div className="sd-row"><span>Prix cible</span><span>${num(result.priceFuture)}</span></div>
+        <div className="sd-row"><span>Prix cible ({years}a)</span><span>${num(result.priceFuture)}</span></div>
         {result.dividendsCumulated > 0 && <div className="sd-row"><span>Dividendes cumulés</span><span>${num(result.dividendsCumulated)}</span></div>}
         <div className="sd-row total"><span>Valeur totale</span><span>${num(result.totalValue)}</span></div>
+        <div className="sd-row fair-value-row">
+          <span>Fair value (10%/an)</span>
+          <span className="fv-price">${num(result.fairValue)}</span>
+        </div>
+        <div className={`sd-row mos-row ${mosColor}`}>
+          <span>Cours actuel (${num(currentPrice)})</span>
+          <span>{mosLabel}</span>
+        </div>
       </div>
     </div>
   );
@@ -136,6 +147,7 @@ export default function DCFSection({ stock, onUpdate }) {
               result={key === "bear" ? bearResult : key === "base" ? baseResult : bullResult}
               color={color}
               years={assum.years}
+              currentPrice={s.price}
             />
           </div>
         ))}

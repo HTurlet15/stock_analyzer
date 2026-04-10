@@ -154,5 +154,9 @@ export const calculateDCF = (data, assumptions, years = 5) => {
   const totalValue = priceFuture + dividendsCumulated;
   const returnWithDivs = Math.pow(totalValue / price, 1 / years) - 1;
   const returnNoDivs = Math.pow(priceFuture / price, 1 / years) - 1;
-  return { epsFuture, priceFuture, dividendsCumulated, totalValue, returnWithDivs, returnNoDivs };
+  // Fair value = price you should pay today to achieve exactly 10%/year
+  const TARGET_RETURN = 0.10;
+  const fairValue = totalValue / Math.pow(1 + TARGET_RETURN, years);
+  const marginOfSafety = (fairValue - price) / fairValue; // >0 = cheap, <0 = expensive
+  return { epsFuture, priceFuture, dividendsCumulated, totalValue, returnWithDivs, returnNoDivs, fairValue, marginOfSafety };
 };

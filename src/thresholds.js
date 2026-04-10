@@ -29,7 +29,7 @@ export function saveThresholds(t) {
   localStorage.setItem(LS_KEY, JSON.stringify(t));
 }
 
-const paysDividend = (s) => s.dividendPerShare != null && s.dividendPerShare > 0;
+const paysDividend = (s) => s.dividendYield != null && s.dividendYield > 0;
 
 // Unified score calculation — used in both StockCard header and SyntheseSection
 // Returns null for N/A criteria (excluded from score entirely, not counted as failures)
