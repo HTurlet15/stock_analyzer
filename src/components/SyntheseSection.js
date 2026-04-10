@@ -41,7 +41,7 @@ const SCORE_CRITERIA = [
   { label: "Dette/EBITDA",       get: (s, t) => s.debtToEbitda  != null && s.debtToEbitda  <= t.debtEbitdaOk,    hint: (t) => `≤ ${t.debtEbitdaOk}x` },
   { label: "ROIC",               get: (s, t) => s.roic          != null && s.roic          >= t.roicOk,          hint: (t) => `≥ ${pct(t.roicOk)}` },
   { label: "ROE",                get: (s, t) => s.roe           != null && s.roe           >= t.roeOk,           hint: (t) => `≥ ${pct(t.roeOk)}` },
-  { label: "Actions décroissent",get: (s)    => s.sharesDecreasing === true,                                     hint: () => "stable ou en baisse" },
+  { label: "Actions décroissent",get: (s)    => s.sharesDecreasing,                                              hint: () => "stable ou en baisse" },
   { label: "Payout Ratio",       get: (s, t) => s.dividendPerShare > 0 ? (s.payoutRatio != null && s.payoutRatio <= t.payoutRatioOk) : null, hint: (t) => `≤ ${pct(t.payoutRatioOk)}` },
   { label: "Div/FCF",            get: (s, t) => s.dividendPerShare > 0 ? (s.divToFcf    != null && s.divToFcf    <= t.divFcfOk)      : null, hint: (t) => `≤ ${pct(t.divFcfOk)}` },
   { label: "Capex en croissance",   get: (s) => s.capexGrowing  === true,                                       hint: () => "investit dans sa croissance" },

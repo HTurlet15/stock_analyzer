@@ -45,7 +45,7 @@ export function computeScore(s, t) {
     s.debtToEbitda  != null && s.debtToEbitda  <= t.debtEbitdaOk,
     s.roic          != null && s.roic          >= t.roicOk,
     s.roe           != null && s.roe           >= t.roeOk,
-    s.sharesDecreasing === true,
+    s.sharesDecreasing,
     // Dividend criteria: null (N/A) when company pays no dividend
     paysDividend(s) ? (s.payoutRatio != null && s.payoutRatio <= t.payoutRatioOk) : null,
     paysDividend(s) ? (s.divToFcf    != null && s.divToFcf    <= t.divFcfOk)      : null,

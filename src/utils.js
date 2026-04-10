@@ -76,7 +76,9 @@ export const processData = (raw) => {
   const roe = latestMet.roe;
   const sharesCurrent = latestInc.weightedAverageShsOut;
   const sharesOld = (inc[inc.length - 1] || {}).weightedAverageShsOut;
-  const sharesDecreasing = sharesOld != null && sharesCurrent != null && sharesCurrent <= sharesOld;
+  const sharesDecreasing = (sharesOld != null && sharesCurrent != null)
+    ? sharesCurrent <= sharesOld
+    : null;
   const payoutRatio = latestRat.payoutRatio;
   const dividendsPaid = latestCF.dividendsPaid ? Math.abs(latestCF.dividendsPaid) : null;
   const divToFcf = dividendsPaid && fcfCurrent && fcfCurrent > 0 ? dividendsPaid / fcfCurrent : null;
