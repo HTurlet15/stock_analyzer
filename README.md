@@ -1,98 +1,175 @@
 # Stock Analyzer
 
-Outil d'analyse fondamentale boursière (React + Flask + yfinance).
+A self-hosted fundamental analysis tool for stocks. Search any ticker, explore 20 years of financial history, run DCF valuations, and get a synthesized health score — all in one dashboard.
 
-## Lancer le projet
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)
+![Flask](https://img.shields.io/badge/Flask-3-000000?logo=flask&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)
 
-**Terminal 1 — backend Flask :**
+---
+
+## Features
+
+- **Financial tables** — Income statement, balance sheet, and cash flow going back up to 20 years, with inline charts on row click
+- **Valuation tab** — Historical PER, EV/EBITDA, P/S, P/B, ROE, ROIC with sparkline charts
+- **DCF calculator** — Three scenarios (bear / base / bull) with configurable assumptions and target return
+- **Synthesis score** — Weighted health score across growth, profitability, debt, and shareholder value criteria
+- **Analyst data** — Consensus price target, EPS & revenue estimates, and analyst rating breakdown
+- **Dark / light mode** — Automatic via system preference
+- **Dual data sources** — Alpha Vantage as primary (long history), yfinance as fallback for missing years
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | React 19, Recharts |
+| Backend | Python / Flask |
+| Financial data | yfinance, Alpha Vantage API, Financial Modeling Prep API |
+| Package manager | npm (frontend), uv or pip (backend) |
+
+---
+
+## Prerequisites
+
+- **Node.js** ≥ 18 and **npm** ≥ 9
+- **Python** ≥ 3.10
+- API keys (free tiers are sufficient — see [API Keys](#api-keys))
+
+---
+
+## Installation
+
+### 1. Clone the repository
+
 ```bash
-source .venv/bin/activate && python3 app.py
+git clone https://github.com/your-username/stock-analyzer.git
+cd stock-analyzer
 ```
 
-**Terminal 2 — frontend React :**
+### 2. Configure environment variables
+
+```bash
+cp .env.example .env
+```
+
+Open `.env` and fill in your API keys (see [API Keys](#api-keys) below).
+
+### 3. Install frontend dependencies
+
+```bash
+npm install
+```
+
+### 4. Install backend dependencies
+
+**Option A — with uv (recommended):**
+
+```bash
+pip install uv
+uv venv
+source .venv/bin/activate        # macOS / Linux
+# .venv\Scripts\activate         # Windows
+uv pip install flask flask-cors yfinance pandas requests
+```
+
+**Option B — with pip:**
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate        # macOS / Linux
+# .venv\Scripts\activate         # Windows
+pip install flask flask-cors yfinance pandas requests
+```
+
+---
+
+## Running the App
+
+You need **two terminals** running simultaneously.
+
+**Terminal 1 — Flask backend:**
+
+```bash
+source .venv/bin/activate
+python3 app.py
+```
+
+The API will be available at `http://localhost:5000`.
+
+**Terminal 2 — React frontend:**
+
 ```bash
 npm start
 ```
 
-L'app sera accessible sur http://localhost:3000.  
-Le backend tourne sur http://localhost:5000.
-
-## Endpoints
-
-| Méthode | URL | Description |
-|---------|-----|-------------|
-| GET | `/api/health` | Vérifier que le backend tourne |
-| GET | `/api/stock/<symbol>` | Données financières complètes (ex: `/api/stock/AAPL`) |
-
-## Dépendances Python
-
-Gérées via `uv` dans le venv `.venv` : `flask`, `flask-cors`, `yfinance`, `pandas`.
+The app will open at `http://localhost:3000`.
 
 ---
 
-## Available Scripts
+## API Keys
 
-In the project directory, you can run:
+The app works with two optional (but recommended) free API keys.
 
-### `npm start`
+### Alpha Vantage — historical financials
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+Used as the primary data source for up to 20 years of income statement, balance sheet, and cash flow data.
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+1. Go to [alphavantage.co/support/#api-key](https://www.alphavantage.co/support/#api-key)
+2. Register with your email — the key is delivered instantly
+3. Free tier: **25 requests / day**
+4. Add to `.env`: `AV_API_KEY=your_key`
 
-### `npm test`
+> Without this key the app falls back to yfinance, which only provides ~4 years of history.
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### Financial Modeling Prep — analyst estimates & price targets
 
-### `npm run build`
+Used for forward EPS/revenue estimates and analyst consensus price targets.
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+1. Go to [financialmodelingprep.com/developer/docs](https://financialmodelingprep.com/developer/docs)
+2. Create a free account
+3. Free tier: **250 requests / day**
+4. Add to `.env`: `REACT_APP_FMP_API_KEY=your_key`
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+> Without this key the app falls back to yfinance estimates; price targets will not be shown.
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+---
 
-### `npm run eject`
+## Project Structure
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+```
+stock-analyzer/
+├── app.py                      # Flask API (data fetching, merging, computation)
+├── .env                        # Your local secrets (not committed)
+├── .env.example                # Template for environment variables
+├── package.json
+└── src/
+    ├── App.js                  # Root component
+    ├── thresholds.js           # Scoring thresholds & configurable settings
+    ├── utils.js                # DCF model, formatters, scoring helpers
+    └── components/
+        ├── Dashboard.js/css    # Main layout, stock search, settings panel
+        ├── StockCard.js/css    # Expandable card with tabbed sections
+        ├── SyntheseSection.js/css   # Health score & key criteria
+        ├── ValuationSection.js/css  # Valuation ratios & sparkline charts
+        ├── DCFSection.js/css        # DCF calculator with scenarios
+        ├── MoatSection.js/css       # Competitive moat analysis
+        └── ManagementSection.js/css # Management quality indicators
+```
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+---
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+## API Endpoints
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/health` | Check that the backend is running |
+| `GET` | `/api/stock/<SYMBOL>` | Full financial data for a ticker (e.g. `/api/stock/AAPL`) |
+| `GET` | `/api/debug/<SYMBOL>` | Raw yfinance row names — useful for diagnosing missing fields |
 
-## Learn More
+---
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+## License
 
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+MIT
