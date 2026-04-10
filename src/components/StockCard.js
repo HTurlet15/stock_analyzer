@@ -198,7 +198,7 @@ const TABS = [
 export default function StockCard({ stock, thresholds, onRemove, onUpdate }) {
   const [expanded, setExpanded] = useState(true);
   const [activeTab, setActiveTab] = useState("synthese");
-  const [period, setPeriod] = useState("max");
+  const [period, setPeriod] = useState(5);
   const s = stock;
   const raw = s.raw || {};
 
@@ -277,7 +277,7 @@ export default function StockCard({ stock, thresholds, onRemove, onUpdate }) {
             <div className="tab-content">
               <div className="period-selector">
                 <span className="period-selector-label">Période</span>
-                {[3, 4, 5, "max"].map(p => (
+                {[3, 5, 10, 15, "max"].map(p => (
                   <button key={p} className={`period-btn ${period === p ? "active" : ""}`} onClick={() => setPeriod(p)}>
                     {p === "max" ? "Max" : `${p} ans`}
                   </button>
@@ -387,7 +387,7 @@ export default function StockCard({ stock, thresholds, onRemove, onUpdate }) {
             </div>
           )}
 
-          {activeTab === "dcf"        && <DCFSection      stock={stock} onUpdate={onUpdate} />}
+          {activeTab === "dcf"        && <DCFSection      stock={stock} thresholds={thresholds} onUpdate={onUpdate} />}
           {activeTab === "moat"       && <MoatSection     stock={stock} onUpdate={onUpdate} />}
           {activeTab === "management" && <ManagementSection stock={stock} onUpdate={onUpdate} />}
         </div>

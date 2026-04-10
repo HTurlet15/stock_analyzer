@@ -2,11 +2,12 @@ import { useState, useEffect } from "react";
 import { calculateDCF, num, pct } from "../utils";
 import "./DCFSection.css";
 
-const ScenarioCard = ({ label, result, color, years, currentPrice }) => {
+const ScenarioCard = ({ label, result, color, years, currentPrice, targetReturn }) => {
   if (!result) return null;
   const mos = result.marginOfSafety;
   const mosColor = mos > 0.15 ? "green" : mos > 0 ? "orange" : "red";
   const mosLabel = mos > 0 ? `−${(mos * 100).toFixed(0)}% sous fair value` : `+${(Math.abs(mos) * 100).toFixed(0)}% au-dessus fair value`;
+  const trLabel = `${((targetReturn ?? 0.10) * 100).toFixed(0)}%/an`;
   return (
     <div className={`scenario-card ${color}`}>
       <p className="scenario-label">{label}</p>
@@ -20,7 +21,7 @@ const ScenarioCard = ({ label, result, color, years, currentPrice }) => {
         {result.dividendsCumulated > 0 && <div className="sd-row"><span>Dividendes cumulés</span><span>${num(result.dividendsCumulated)}</span></div>}
         <div className="sd-row total"><span>Valeur totale</span><span>${num(result.totalValue)}</span></div>
         <div className="sd-row fair-value-row">
-          <span>Fair value (10%/an)</span>
+          <span>Fair value ({trLabel})</span>
           <span className="fv-price">${num(result.fairValue)}</span>
         </div>
         <div className={`sd-row mos-row ${mosColor}`}>
@@ -48,7 +49,7 @@ const InputRow = ({ label, value, onChange, isPercent }) => (
   </div>
 );
 
-export default function DCFSection({ stock, onUpdate }) {
+export default function DCFSection({ stock, thresholds, onUpdate }) {
   const s = stock;
 
   const hasDividend = s.dividendPerShare != null && s.dividendPerShare > 0;
@@ -74,9 +75,10 @@ export default function DCFSection({ stock, onUpdate }) {
   };
 
   const [assum, setAssum] = useState(s.dcfAssumptions || def);
-  const bearResult = calculateDCF(s, assum.bear, assum.years);
-  const baseResult = calculateDCF(s, assum.base, assum.years);
-  const bullResult = calculateDCF(s, assum.bull, assum.years);
+  const tr = thresholds?.fairValueTargetReturn ?? 0.10;
+  const bearResult = calculateDCF(s, assum.bear, assum.years, tr);
+  const baseResult = calculateDCF(s, assum.base, assum.years, tr);
+  const bullResult = calculateDCF(s, assum.bull, assum.years, tr);
 
   useEffect(() => {
     onUpdate(s.symbol, { assumptions: { bear: bearResult, base: baseResult, bull: bullResult }, dcfAssumptions: assum });
@@ -106,6 +108,8 @@ export default function DCFSection({ stock, onUpdate }) {
             { label: "Div./action",     val: hasDividend ? `$${num(s.dividendPerShare)}` : "N/A" },
             { label: "Div. CAGR",       val: hasDividend ? pct(s.divGrowth) : "N/A" },
             { label: "Prix actuel",     val: `$${num(s.price)}` },
+            { label: "Obj. analystes",  val: s.priceTarget?.consensus != null ? `$${num(s.priceTarget.consensus, 0)}` : "N/A",
+              highlight: s.priceTarget?.consensus > s.price },
           ].map((a) => (
             <div key={a.label} className={`anchor-chip ${a.highlight ? "highlight" : ""}`}>
               <span className="ac-label">{a.label}</span>
@@ -148,6 +152,7 @@ export default function DCFSection({ stock, onUpdate }) {
               color={color}
               years={assum.years}
               currentPrice={s.price}
+              targetReturn={tr}
             />
           </div>
         ))}

@@ -28,7 +28,8 @@ export const colorFromThresholds = (value, greenThreshold, orangeThreshold, inve
 };
 
 export const processData = (raw) => {
-  const { quote, profile, income, balance, cashflow, metrics, ratios, estimates, dividends } = raw;
+  const { quote, profile, income, balance, cashflow, metrics, ratios, estimates, dividends,
+          priceTarget, analystRating } = raw;
 
   const q = Array.isArray(quote) ? quote[0] : quote;
   const p = Array.isArray(profile) ? profile[0] : profile;
@@ -133,11 +134,12 @@ export const processData = (raw) => {
     profitsVsDebt, cashFollowsEarnings, dividendCoveredByEarnings,
     peCurrent, peHistorical, forwardPE, forwardPEYear, analystEpsGrowth, analystRevGrowth,
     dividendYield, dividendPerShare, divGrowth,
+    priceTarget, analystRating,
     inc, cf, met, rat, est, divs,
   };
 };
 
-export const calculateDCF = (data, assumptions, years = 5) => {
+export const calculateDCF = (data, assumptions, years = 5, targetReturn = 0.10) => {
   const { price, epsCurrent, dividendPerShare } = data;
   const { epsGrowth, peExit, divGrowthRate } = assumptions;
   if (!epsCurrent || !price || !peExit || epsGrowth == null) return null;
@@ -154,9 +156,7 @@ export const calculateDCF = (data, assumptions, years = 5) => {
   const totalValue = priceFuture + dividendsCumulated;
   const returnWithDivs = Math.pow(totalValue / price, 1 / years) - 1;
   const returnNoDivs = Math.pow(priceFuture / price, 1 / years) - 1;
-  // Fair value = price you should pay today to achieve exactly 10%/year
-  const TARGET_RETURN = 0.10;
-  const fairValue = totalValue / Math.pow(1 + TARGET_RETURN, years);
+  const fairValue = totalValue / Math.pow(1 + targetReturn, years);
   const marginOfSafety = (fairValue - price) / fairValue; // >0 = cheap, <0 = expensive
   return { epsFuture, priceFuture, dividendsCumulated, totalValue, returnWithDivs, returnNoDivs, fairValue, marginOfSafety };
 };

@@ -63,7 +63,7 @@ export default function SyntheseSection({ stock, thresholds: t }) {
     peExit,
     divGrowthRate: s.divGrowth ?? 0,
   };
-  const dcf = calculateDCF(s, dcfAssumptions, 3);
+  const dcf = calculateDCF(s, dcfAssumptions, 3, t.fairValueTargetReturn ?? 0.10);
   const dcfColor = dcf
     ? (dcf.returnWithDivs >= 0.10 ? "green" : dcf.returnWithDivs >= 0.07 ? "orange" : "red")
     : "dim";
@@ -199,6 +199,44 @@ export default function SyntheseSection({ stock, thresholds: t }) {
             color={scoreColor(s.analystRevGrowth, t.analystRevGood, t.analystRevOk)}
             hint={`seuil vert ≥ ${pct(t.analystRevGood)}`}
           />
+          {s.priceTarget?.consensus != null && (() => {
+            const upside = (s.priceTarget.consensus - s.price) / s.price;
+            return (
+              <>
+                <MetricRow
+                  label="Objectif de cours (consensus)"
+                  value={`$${num(s.priceTarget.consensus, 0)}`}
+                  color={upside >= 0.10 ? "green" : upside >= 0 ? "orange" : "red"}
+                  hint={`${upside >= 0 ? "+" : ""}${pct(upside)} vs cours actuel`}
+                />
+                <MetricRow
+                  label="Fourchette analystes"
+                  value={`$${num(s.priceTarget.low, 0)} – $${num(s.priceTarget.high, 0)}`}
+                  color="dim"
+                />
+              </>
+            );
+          })()}
+          {s.analystRating && (() => {
+            const r = s.analystRating;
+            const bullish = r.strongBuy + r.buy;
+            const pctBull = Math.round((bullish / r.total) * 100);
+            const pctHold = Math.round((r.hold / r.total) * 100);
+            const pctBear = Math.round(((r.sell + r.strongSell) / r.total) * 100);
+            return (
+              <div className="rating-bar-wrap">
+                <span className="rating-bar-label">{r.total} analystes</span>
+                <div className="rating-bar">
+                  <div className="rb-green"  style={{ width: `${pctBull}%` }} title={`Achat ${pctBull}%`} />
+                  <div className="rb-orange" style={{ width: `${pctHold}%` }} title={`Neutre ${pctHold}%`} />
+                  <div className="rb-red"    style={{ width: `${pctBear}%` }} title={`Vente ${pctBear}%`} />
+                </div>
+                <span className="rating-legend">
+                  <span className="green">{pctBull}% achat</span> · <span className="dim">{pctHold}% neutre</span> · <span className="red">{pctBear}% vente</span>
+                </span>
+              </div>
+            );
+          })()}
 
           <div className="syn-divider" />
 

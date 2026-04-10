@@ -44,28 +44,46 @@ function SettingsPanel({ thresholds, onChange, onClose }) {
               <div key={field.key} className="settings-row">
                 <span className="settings-row-label">{field.label}</span>
                 <div className="settings-inputs">
-                  <label className="settings-input-label">
-                    <span className={`threshold-dot green`} />
-                    <input
-                      type="number"
-                      className="settings-input"
-                      step={field.pct ? "0.1" : "0.5"}
-                      defaultValue={fmt(thresholds[field.key + "Good"], field.pct)}
-                      onBlur={e => handleChange(field.key, e.target.value, field.pct)}
-                    />
-                    {field.pct ? "%" : "x"}
-                  </label>
-                  <label className="settings-input-label">
-                    <span className={`threshold-dot orange`} />
-                    <input
-                      type="number"
-                      className="settings-input"
-                      step={field.pct ? "0.1" : "0.5"}
-                      defaultValue={fmt(thresholds[field.key + "Ok"], field.pct)}
-                      onBlur={e => handleOkChange(field.key, e.target.value, field.pct)}
-                    />
-                    {field.pct ? "%" : "x"}
-                  </label>
+                  {field.single ? (
+                    <label className="settings-input-label">
+                      <input
+                        type="number"
+                        className="settings-input"
+                        step={field.pct ? "0.1" : "0.5"}
+                        defaultValue={fmt(thresholds[field.key], field.pct)}
+                        onBlur={e => {
+                          const val = parse(e.target.value, field.pct);
+                          if (val !== null) onChange({ ...thresholds, [field.key]: val });
+                        }}
+                      />
+                      {field.pct ? "%" : "x"}
+                    </label>
+                  ) : (
+                    <>
+                      <label className="settings-input-label">
+                        <span className={`threshold-dot green`} />
+                        <input
+                          type="number"
+                          className="settings-input"
+                          step={field.pct ? "0.1" : "0.5"}
+                          defaultValue={fmt(thresholds[field.key + "Good"], field.pct)}
+                          onBlur={e => handleChange(field.key, e.target.value, field.pct)}
+                        />
+                        {field.pct ? "%" : "x"}
+                      </label>
+                      <label className="settings-input-label">
+                        <span className={`threshold-dot orange`} />
+                        <input
+                          type="number"
+                          className="settings-input"
+                          step={field.pct ? "0.1" : "0.5"}
+                          defaultValue={fmt(thresholds[field.key + "Ok"], field.pct)}
+                          onBlur={e => handleOkChange(field.key, e.target.value, field.pct)}
+                        />
+                        {field.pct ? "%" : "x"}
+                      </label>
+                    </>
+                  )}
                 </div>
               </div>
             ))}
@@ -120,10 +138,11 @@ export default function Dashboard() {
         base: { epsGrowth: epsG, peExit: peEx, divGrowthRate: divG },
         bull: { epsGrowth: epsG * 1.4, peExit: peEx * 1.2, divGrowthRate: divG * 1.4 },
       };
+      const tr = thresholds.fairValueTargetReturn ?? 0.10;
       const assumptions = {
-        bear: calculateDCF(processed, dcfAssumptions.bear, 5),
-        base: calculateDCF(processed, dcfAssumptions.base, 5),
-        bull: calculateDCF(processed, dcfAssumptions.bull, 5),
+        bear: calculateDCF(processed, dcfAssumptions.bear, 5, tr),
+        base: calculateDCF(processed, dcfAssumptions.base, 5, tr),
+        bull: calculateDCF(processed, dcfAssumptions.bull, 5, tr),
       };
       setWatchlist((prev) => [...prev, { ...processed, raw, moat: null, management: null, assumptions, dcfAssumptions }]);
       setInput("");

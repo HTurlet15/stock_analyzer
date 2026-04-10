@@ -11,6 +11,7 @@ export const DEFAULT_THRESHOLDS = {
   perGood:           25,   perOk:           30,
   analystEpsGood:    0.10, analystEpsOk:    0.05,
   analystRevGood:    0.08, analystRevOk:    0.05,
+  fairValueTargetReturn: 0.10,
 };
 
 const LS_KEY = "sa_thresholds";
@@ -91,6 +92,7 @@ export const THRESHOLD_CONFIGS = [
       { key: "per",         label: "PER",               pct: false, inverse: true },
       { key: "analystEps",  label: "BPA croissance est.", pct: true },
       { key: "analystRev",  label: "CA croissance est.",  pct: true },
+      { key: "fairValueTargetReturn", label: "Rendement cible fair value", pct: true, single: true },
     ]
   },
 ];
