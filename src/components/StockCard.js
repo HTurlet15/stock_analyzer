@@ -72,11 +72,22 @@ const FinancialTable = ({ raw, period }) => {
   // ── Trend helpers ────────────────────────────────────────────────────────
   const trendCAGR = (values, good = 0.10, ok = 0.05) => {
     const v = values.filter(x => x != null && isFinite(x));
-    if (v.length < 2 || v[0] <= 0) return { label: "—", cls: "dim" };
-    const rate = Math.pow(v[v.length - 1] / v[0], 1 / (v.length - 1)) - 1;
-    if (!isFinite(rate) || isNaN(rate)) return { label: "—", cls: "dim" };
-    const cls = rate >= good ? "green" : rate >= ok ? "orange" : "red";
-    return { label: `${rate >= 0 ? "↑" : "↓"} ${Math.abs(rate * 100).toFixed(1)}%/an`, cls };
+    if (v.length < 2) return { label: "—", cls: "dim" };
+    const first = v[0], last = v[v.length - 1];
+    // Both positive → standard CAGR
+    if (first > 0 && last > 0) {
+      const rate = Math.pow(last / first, 1 / (v.length - 1)) - 1;
+      if (!isFinite(rate) || isNaN(rate)) return { label: "—", cls: "dim" };
+      const cls = rate >= good ? "green" : rate >= ok ? "orange" : "red";
+      return { label: `${rate >= 0 ? "↑" : "↓"} ${Math.abs(rate * 100).toFixed(1)}%/an`, cls };
+    }
+    // Negative start, positive end → recovery
+    if (first <= 0 && last > 0) return { label: "↑ Redressement", cls: "green" };
+    // Positive start, negative end → deterioration
+    if (first > 0 && last <= 0) return { label: "↓ Détérioration", cls: "red" };
+    // Both negative → less negative = improving
+    const improving = last > first;
+    return { label: improving ? "↑ S'améliore" : "↓ Se dégrade", cls: improving ? "orange" : "red" };
   };
 
   const trendDir = (values, inverse = false) => {
