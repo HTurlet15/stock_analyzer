@@ -1,5 +1,12 @@
 .synthese-section { display: flex; flex-direction: column; gap: 20px; padding: 24px; }
 
+/* Period selector */
+.syn-period-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.syn-period-label { font-size: 11px; color: var(--text-muted); margin-right: 4px; }
+.syn-period-btn { padding: 4px 11px; border-radius: 5px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+.syn-period-btn:hover { border-color: var(--border-bright); color: var(--text); }
+.syn-period-btn.active { background: var(--accent-dim); border-color: rgba(79,70,229,.3); color: var(--accent); font-weight: 600; }
+
 /* Verdict banner */
 .verdict-banner { display: flex; align-items: center; gap: 20px; border-radius: 12px; padding: 20px 24px; border: 1px solid transparent; }
 .verdict-banner.green  { background: var(--green-dim);  border-color: rgba(13,122,60,.25);  }

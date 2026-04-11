@@ -137,8 +137,45 @@ export const processData = (raw) => {
     peCurrent, peHistorical, forwardPE, forwardPEYear, analystEpsGrowth, analystRevGrowth,
     dividendYield, dividendPerShare, divGrowth,
     priceTarget, analystRating,
-    inc, cf, met, rat, est, divs,
+    inc, cf, met, rat, est, divs, bal,
   };
+};
+
+// Recompute period-sensitive metrics (CAGR, trend checks) for a given window.
+// Non-CAGR metrics (margins, ROIC, ROE, ratios) stay anchored to the latest year.
+export const computeMetricsForPeriod = (stock, periodYears) => {
+  const { inc, cf, bal } = stock;
+  if (!inc?.length) return stock;
+
+  const limit = periodYears === "max" ? undefined : periodYears + 1;
+  const incSlice = limit ? inc.slice(0, limit) : inc;
+  const cfSlice  = limit ? (cf  || []).slice(0, limit) : (cf  || []);
+  const balSlice = limit ? (bal || []).slice(0, limit) : (bal || []);
+
+  const cagrSeries = (arr, key) => {
+    const valid = arr.filter(r => r[key] != null && r[key] > 0);
+    if (valid.length < 2) return null;
+    return cagr(valid[valid.length - 1][key], valid[0][key], valid.length - 1);
+  };
+
+  const revenueGrowth = cagrSeries(incSlice, 'revenue');
+  const epsGrowth     = cagrSeries(incSlice, 'eps');
+  const fcfGrowth     = cagrSeries(cfSlice,  'freeCashFlow');
+
+  const sharesCurrent  = (incSlice[0] || {}).weightedAverageShsOut;
+  const sharesOld      = (incSlice[incSlice.length - 1] || {}).weightedAverageShsOut;
+  const sharesDecreasing = sharesOld != null && sharesCurrent != null ? sharesCurrent <= sharesOld : null;
+
+  const netDebt    = (balSlice[0]  || {}).netDebt;
+  const netDebtOld = (balSlice[balSlice.length - 1] || {}).netDebt;
+  const netDebtDecreasing = netDebtOld != null && netDebt != null ? netDebt < netDebtOld : stock.netDebtDecreasing;
+
+  const capexValid   = cfSlice.filter(r => r.capitalExpenditure != null && r.capitalExpenditure !== 0);
+  const capex        = capexValid.length > 0 ? Math.abs(capexValid[0].capitalExpenditure) : null;
+  const capexOld     = capexValid.length > 1 ? Math.abs(capexValid[capexValid.length - 1].capitalExpenditure) : null;
+  const capexGrowing = capex != null && capexOld != null ? capex > capexOld : stock.capexGrowing;
+
+  return { ...stock, revenueGrowth, epsGrowth, fcfGrowth, sharesDecreasing, netDebtDecreasing, capexGrowing };
 };
 
 export const calculateDCF = (data, assumptions, years = 5, targetReturn = 0.10) => {

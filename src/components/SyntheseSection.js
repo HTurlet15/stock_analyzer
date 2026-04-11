@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { pct, num, calculateDCF } from "../utils";
+import { pct, num, calculateDCF, computeMetricsForPeriod } from "../utils";
 import { scoreColor, computeScore } from "../thresholds";
 import "./SyntheseSection.css";
 
@@ -47,9 +47,15 @@ const SCORE_CRITERIA = [
   { label: "Capex en croissance",   get: (s) => s.capexGrowing  === true,                                       hint: () => "investit dans sa croissance" },
 ];
 
+const PERIODS = [3, 5, 10, 15, "max"];
+
 export default function SyntheseSection({ stock, thresholds: t }) {
-  const s = stock;
+  const [period, setPeriod] = useState(5);
   const [showScoreDetail, setShowScoreDetail] = useState(false);
+
+  // Recompute CAGR and trend checks for the selected window
+  const s = computeMetricsForPeriod(stock, period);
+  const periodLabel = period === "max" ? "Max" : `${period} ans`;
 
   // ── Score ─────────────────────────────────────────────────────────────────
   const score  = computeScore(s, t);
@@ -70,6 +76,20 @@ export default function SyntheseSection({ stock, thresholds: t }) {
 
   return (
     <div className="synthese-section">
+
+      {/* ── Period selector ────────────────────────────────────────────────── */}
+      <div className="syn-period-row">
+        <span className="syn-period-label">Période d'analyse :</span>
+        {PERIODS.map(p => (
+          <button
+            key={p}
+            className={`syn-period-btn${period === p ? " active" : ""}`}
+            onClick={() => setPeriod(p)}
+          >
+            {p === "max" ? "Max" : `${p} ans`}
+          </button>
+        ))}
+      </div>
 
       {/* ── Verdict banner ─────────────────────────────────────────────────── */}
       <div className={`verdict-banner ${verdict.cls}`}>
@@ -114,19 +134,19 @@ export default function SyntheseSection({ stock, thresholds: t }) {
           <p className="syn-col-title">Qualité fondamentale</p>
 
           <MetricRow
-            label="Croissance CA (CAGR)"
+            label={`Croissance CA — CAGR ${periodLabel}`}
             value={pct(s.revenueGrowth)}
             color={scoreColor(s.revenueGrowth, t.revenueGrowthGood, t.revenueGrowthOk)}
             hint={`seuil vert ≥ ${pct(t.revenueGrowthGood)}`}
           />
           <MetricRow
-            label="Croissance BPA (CAGR)"
+            label={`Croissance BPA — CAGR ${periodLabel}`}
             value={pct(s.epsGrowth)}
             color={scoreColor(s.epsGrowth, t.epsGrowthGood, t.epsGrowthOk)}
             hint={`seuil vert ≥ ${pct(t.epsGrowthGood)}`}
           />
           <MetricRow
-            label="Croissance FCF (CAGR)"
+            label={`Croissance FCF — CAGR ${periodLabel}`}
             value={pct(s.fcfGrowth)}
             color={scoreColor(s.fcfGrowth, t.fcfGrowthGood, t.fcfGrowthOk)}
             hint={`seuil vert ≥ ${pct(t.fcfGrowthGood)}`}
