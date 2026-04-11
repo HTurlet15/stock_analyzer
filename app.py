@@ -621,25 +621,27 @@ def analyze_stock(symbol, analysis_type):
 
     if analysis_type == "moat":
         queries = [
-            f"{company} competitive advantage moat market position 2024 2025",
-            f"{company} brand pricing power switching costs network effect",
-            f"{company} market share competitors barriers to entry",
+            f"{company} market share dominance specific products revenue breakdown 2024",
+            f"{company} pricing power customer retention switching costs concrete examples",
+            f"{company} competitive advantages vs {industry} competitors barriers to entry data",
+            f"{company} brand value patents licenses monopoly position numbers",
         ]
     else:
         queries = [
-            f"{company} CEO annual letter shareholders 2024 2025",
-            f"{company} management capital allocation acquisitions buybacks 2024 2025",
-            f"{company} CEO compensation strategy long term vision",
+            f"{company} CEO specific decisions acquisitions strategy results 2023 2024 2025",
+            f"{company} share buybacks amount timing debt reduction capital allocation facts",
+            f"{company} CEO shareholder letter 2024 failures mistakes transparency",
+            f"{company} executive compensation structure performance metrics R&D investment",
         ]
 
     search_context = ""
     sources = []
     for q in queries:
         try:
-            r = tavily.search(query=q, search_depth="basic", max_results=3)
+            r = tavily.search(query=q, search_depth="advanced", max_results=4)
             for item in r.get("results", []):
                 title   = item.get("title", "")
-                content = item.get("content", "")[:400]
+                content = item.get("content", "")[:600]
                 url     = item.get("url", "")
                 search_context += f"\n---\n{title}\n{content}\n"
                 if url:
@@ -666,81 +668,103 @@ Données financières (moyennes 5-10 ans) :
 
     # ── Build Claude prompt ───────────────────────────────────────────────────
     if analysis_type == "moat":
-        system = """Tu es un analyste financier expert en analyse fondamentale style Warren Buffett / Morningstar.
-Tu analyses le MOAT (avantage concurrentiel durable) d'entreprises cotées.
+        system = """Tu es un analyste financier senior spécialisé en analyse fondamentale, style Morningstar Economic Moat Rating.
+Ta méthode : tu ne fais JAMAIS d'affirmations génériques. Chaque point d'analyse doit être étayé par :
+- Des noms de produits ou services spécifiques (ex: Azure, Office 365, Xbox Game Pass)
+- Des chiffres précis (part de marché %, revenus par segment, taux de rétention, prix vs concurrents)
+- Des événements datés (lancement produit, acquisition, décision stratégique avec année)
+- Des comparaisons directes avec des concurrents nommés
+
 Tu réponds UNIQUEMENT en JSON valide, sans markdown, sans texte avant ou après."""
 
-        user_prompt = f"""Analyse le MOAT de {company} ({sector} — {industry}).
+        user_prompt = f"""Analyse le MOAT (avantage concurrentiel durable) de {company} ({sector} — {industry}).
 
 {fin_ctx}
 
-INFORMATIONS RÉCENTES (web) :
-{search_context[:3000]}
+INFORMATIONS RÉCENTES TROUVÉES SUR LE WEB :
+{search_context[:4500]}
+
+RÈGLE ABSOLUE : chaque "analysis" doit contenir des faits précis — noms de produits, chiffres, événements datés, concurrents nommés. Une analyse générique sans exemple concret est inacceptable.
+
+Exemples de ce qui est attendu :
+- BIEN : "Azure représente ~29% du marché cloud mondial (vs AWS 31%), avec une croissance de 29% au T4 2024. Les 95% des entreprises Fortune 500 utilisent Azure, créant des coûts de migration estimés à plusieurs années de travail IT."
+- MAL : "L'entreprise a une forte position sur le marché cloud avec des avantages compétitifs."
 
 Évalue chacune des 5 catégories de MOAT sur une échelle 0-3 :
-- 0 = Absent
-- 1 = Faible
-- 2 = Modéré
-- 3 = Fort
+- 0 = Absent : aucune barrière identifiable dans cette catégorie
+- 1 = Faible : avantage marginal, facilement contournable
+- 2 = Modéré : avantage réel mais sous pression concurrentielle
+- 3 = Fort : barrière structurelle durable, très difficile à répliquer
 
 Catégories :
-- intangibles : Actifs Intangibles (marque avec pricing power, brevets, licences monopolistiques)
-- switching : Coûts de Changement (coût de migration client insupportable)
-- network : Effet de Réseau (valeur croît avec le nombre d'utilisateurs)
-- cost : Avantage de Coût (économies d'échelle inatteignables par la concurrence)
-- scale : Échelle Efficiente (marché trop petit pour deux acteurs rentables)
+- intangibles : Marque avec pricing power démontré (hausses de prix acceptées), brevets clés, licences monopolistiques
+- switching : Coûts de migration concrets (temps, argent, risque) qui emprisonnent les clients
+- network : Effet réseau mesurable — la valeur augmente avec chaque nouvel utilisateur/partenaire
+- cost : Avantage de coût structurel (échelle, accès matières premières, distribution) vs concurrents nommés
+- scale : Marché de niche où un seul acteur rentable peut exister (infrastructure, concession, monopole régional)
 
-Réponds avec ce JSON exact :
+Réponds avec ce JSON exact (analysis = 3-5 phrases avec faits précis) :
 {{
-  "summary": "Synthèse globale du moat en 3-4 phrases",
+  "summary": "Synthèse en 3-4 phrases avec les 2-3 moats principaux identifiés et leur force relative, avec chiffres clés",
   "categories": {{
-    "intangibles": {{"score": 0, "analysis": "Explication en 2-3 phrases avec données concrètes"}},
-    "switching":   {{"score": 0, "analysis": "..."}},
-    "network":     {{"score": 0, "analysis": "..."}},
-    "cost":        {{"score": 0, "analysis": "..."}},
-    "scale":       {{"score": 0, "analysis": "..."}}
+    "intangibles": {{"score": 0, "analysis": "3-5 phrases avec noms de produits, chiffres de pricing power, parts de marché"}},
+    "switching":   {{"score": 0, "analysis": "3-5 phrases avec exemples concrets de coûts de migration, taux de rétention, lock-in"}},
+    "network":     {{"score": 0, "analysis": "3-5 phrases avec nombre d'utilisateurs, effet réseau mesuré, plateformes nommées"}},
+    "cost":        {{"score": 0, "analysis": "3-5 phrases avec marges vs concurrents nommés, économies d'échelle chiffrées"}},
+    "scale":       {{"score": 0, "analysis": "3-5 phrases avec taille du marché, position dominante, barrières à l'entrée chiffrées"}}
   }},
-  "sources": ["Titre de la source 1", "Titre de la source 2"]
+  "sources": ["Titre source 1", "Titre source 2"]
 }}"""
 
     else:  # management
-        system = """Tu es un analyste financier expert en évaluation de la qualité des dirigeants d'entreprises cotées.
-Tu analyses le management selon des critères précis basés sur les actes, pas les discours.
+        system = """Tu es un analyste financier senior spécialisé en évaluation de la qualité des équipes dirigeantes.
+Ta méthode : tu analyses les ACTES, pas les discours. Chaque point doit être étayé par :
+- Des décisions spécifiques avec leur nom, date et résultat mesuré (ex: acquisition Activision 2023, $68.7Md)
+- Des chiffres précis (montant des rachats, évolution de la dette, % de la rémunération en actions)
+- Des citations ou positions publiques du PDG/CFO avec date si disponibles
+- Des exemples de réussites ET d'erreurs — un dirigeant transparent parle des deux
+
 Tu réponds UNIQUEMENT en JSON valide, sans markdown, sans texte avant ou après."""
 
-        user_prompt = f"""Analyse la qualité du management de {company} ({sector}).
+        user_prompt = f"""Analyse la qualité du management de {company} ({sector} — {industry}).
 
 {fin_ctx}
 
-INFORMATIONS RÉCENTES (web) :
-{search_context[:3000]}
+INFORMATIONS RÉCENTES TROUVÉES SUR LE WEB :
+{search_context[:4500]}
+
+RÈGLE ABSOLUE : chaque "analysis" doit contenir des faits précis — noms des dirigeants, décisions datées, montants, résultats mesurés. Une analyse générique est inacceptable.
+
+Exemples de ce qui est attendu :
+- BIEN : "Satya Nadella a pivoté Microsoft vers le cloud en 2014, abandonnant 'Windows first'. Azure est passé de 0 à ~$110Md de revenus annuels en 10 ans. La décision de couper les divisions non-rentables (Nokia, 2016) a libéré $7.5Md de capital."
+- MAL : "Le management a une bonne vision long terme et prend des décisions éclairées."
 
 Évalue chacun des 6 critères sur une échelle 0-3 :
-- 0 = Red flag
-- 1 = Passable
-- 2 = Bon
-- 3 = Excellent
+- 0 = Red flag : comportement préoccupant avec preuves concrètes
+- 1 = Passable : correct mais sans conviction, quelques signaux négatifs
+- 2 = Bon : solide, cohérent, peu d'erreurs majeures
+- 3 = Excellent : exemplaire, actes alignés avec les intérêts des actionnaires, transparent
 
 Critères :
-- coherence : Cohérence entre le discours et les actes (promesses tenues, objectifs atteints)
-- discipline : Discipline financière (dette maîtrisée, acquisitions créatrices de valeur)
-- vision : Vision long terme (investissement R&D, sacrifices court terme pour l'avenir)
-- alignment : Alignement avec les actionnaires (rémunération sur EPS/FCF, actionnariat management)
-- transparency : Transparence (reconnaissance des échecs, métriques cohérentes)
-- buybacks : Rachats d'actions intelligents (timing vs valeur intrinsèque)
+- coherence : Les objectifs annoncés sont-ils atteints ? Les guidances respectées ? Cite des exemples précis.
+- discipline : Acquisitions créatrices de valeur (nommées), niveau de dette maîtrisé (chiffres), pas de diversification vaniteuse
+- vision : Décisions de repositionnement stratégique (nommées et datées), investissement R&D en % du CA, sacrifices CT assumés
+- alignment : Structure de rémunération (% cash vs actions, métriques de performance), actionnariat des dirigeants, dilution
+- transparency : La lettre aux actionnaires reconnaît-elle des échecs par leur nom ? Métriques cohérentes d'une année à l'autre ?
+- buybacks : Montants rachetés, timing (cours moyen d'achat vs cours actuel), impact sur le nombre d'actions sur 5 ans
 
-Réponds avec ce JSON exact :
+Réponds avec ce JSON exact (analysis = 3-5 phrases avec faits précis, noms, dates, chiffres) :
 {{
-  "summary": "Synthèse globale du management en 3-4 phrases",
+  "summary": "Synthèse en 3-4 phrases sur la qualité globale du management avec les décisions clés et leur impact mesurable",
   "criteria": {{
-    "coherence":    {{"score": 0, "analysis": "Explication en 2-3 phrases avec exemples concrets"}},
-    "discipline":   {{"score": 0, "analysis": "..."}},
-    "vision":       {{"score": 0, "analysis": "..."}},
-    "alignment":    {{"score": 0, "analysis": "..."}},
-    "transparency": {{"score": 0, "analysis": "..."}},
-    "buybacks":     {{"score": 0, "analysis": "..."}}
+    "coherence":    {{"score": 0, "analysis": "3-5 phrases avec exemples de guidances tenues ou ratées, décisions et résultats"}},
+    "discipline":   {{"score": 0, "analysis": "3-5 phrases avec noms d'acquisitions, montants, résultats, évolution de la dette"}},
+    "vision":       {{"score": 0, "analysis": "3-5 phrases avec pivots stratégiques datés, % R&D, paris long terme nommés"}},
+    "alignment":    {{"score": 0, "analysis": "3-5 phrases avec structure de rémunération, actionnariat dirigeants, dilution"}},
+    "transparency": {{"score": 0, "analysis": "3-5 phrases avec exemples de reconnaissance d'échecs ou d'opacité constatée"}},
+    "buybacks":     {{"score": 0, "analysis": "3-5 phrases avec montants rachetés, prix moyen, évolution du nombre d'actions"}}
   }},
-  "sources": ["Titre de la source 1", "Titre de la source 2"]
+  "sources": ["Titre source 1", "Titre source 2"]
 }}"""
 
     # ── Call Claude ───────────────────────────────────────────────────────────
@@ -748,7 +772,7 @@ Réponds avec ce JSON exact :
     client = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
     msg = client.messages.create(
         model="claude-sonnet-4-5",
-        max_tokens=2000,
+        max_tokens=3000,
         system=system,
         messages=[{"role": "user", "content": user_prompt}],
     )
