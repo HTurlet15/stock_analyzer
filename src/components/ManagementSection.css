@@ -31,7 +31,8 @@
 .mgmt-notes::placeholder { color: var(--text-dim); }
 
 /* ── AI analysis (shared styles mirrored from MoatSection) ───────────────── */
-.ai-analyze-wrap { display: flex; align-items: center; gap: 12px; }
+.ai-analyze-wrap { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.ai-analyzed-date { font-size: 11px; color: var(--text-muted); }
 .ai-analyze-btn { display: inline-flex; align-items: center; gap: 8px; padding: 9px 18px; border-radius: 8px; border: 1px solid rgba(79,70,229,.35); background: var(--accent-dim); color: var(--accent); font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
 .ai-analyze-btn:hover:not(:disabled) { background: rgba(79,70,229,.15); border-color: var(--accent); }
 .ai-analyze-btn:disabled { opacity: 0.6; cursor: not-allowed; }

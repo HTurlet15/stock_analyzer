@@ -54,7 +54,7 @@ function buildFinancialSummary(stock) {
 export default function MoatSection({ stock, onUpdate }) {
   const initial = stock.moat || Object.fromEntries(MOAT_TYPES.map((t) => [t.id, { score: null, notes: "" }]));
   const [moat, setMoat]           = useState(initial);
-  const [aiResult, setAiResult]   = useState(null);
+  const [aiResult, setAiResult]   = useState(stock.aiResultMoat || null);
   const [analyzing, setAnalyzing] = useState(false);
   const [aiError, setAiError]     = useState(null);
 
@@ -73,7 +73,12 @@ export default function MoatSection({ stock, onUpdate }) {
     onUpdate(stock.symbol, { moat: updated });
   };
 
+  const fmtDate = (iso) => new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+
   const runAnalysis = async () => {
+    if (aiResult?.analyzedAt) {
+      if (!window.confirm(`Relancer l'analyse IA ?\nLa précédente (${fmtDate(aiResult.analyzedAt)}) sera remplacée.`)) return;
+    }
     setAnalyzing(true);
     setAiError(null);
     try {
@@ -92,7 +97,9 @@ export default function MoatSection({ stock, onUpdate }) {
         throw new Error(err.error || "Erreur serveur");
       }
       const data = await res.json();
-      setAiResult(data);
+      const saved = { ...data, analyzedAt: new Date().toISOString() };
+      setAiResult(saved);
+      onUpdate(stock.symbol, { aiResultMoat: saved });
     } catch (e) {
       setAiError(e.message);
     } finally {
@@ -124,6 +131,9 @@ export default function MoatSection({ stock, onUpdate }) {
           {analyzing ? "Analyse en cours…" : aiResult ? "Relancer l'analyse IA" : "Analyser avec l'IA"}
         </button>
         {analyzing && <span className="ai-spinner" />}
+        {aiResult?.analyzedAt && !analyzing && (
+          <span className="ai-analyzed-date">Dernière analyse : {fmtDate(aiResult.analyzedAt)}</span>
+        )}
       </div>
 
       {aiError && (
