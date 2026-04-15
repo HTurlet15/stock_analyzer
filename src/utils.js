@@ -97,6 +97,15 @@ export const processData = (raw) => {
   const forwardPE = fwdEps && currentPrice ? currentPrice / fwdEps : null;
   const forwardPEYear = est[0]?.date ? est[0].date.slice(0, 4) : null;
 
+  // FCF per share + historical P/FCF (filter outliers >200x to avoid distortion)
+  const fcfPerShare = fcfCurrent != null && sharesCurrent != null && sharesCurrent > 0
+    ? fcfCurrent / sharesCurrent : null;
+  const pfcfValid = met.filter(m => m.pfcfRatio != null && m.pfcfRatio > 0 && m.pfcfRatio < 200);
+  const pfcfHistorical = pfcfValid.length > 0
+    ? pfcfValid.reduce((s, m) => s + m.pfcfRatio, 0) / pfcfValid.length : null;
+  const pfcfCurrent = fcfPerShare != null && fcfPerShare > 0 && currentPrice
+    ? currentPrice / fcfPerShare : null;
+
   // Cap analyst estimates at 3 years (beyond that, too uncertain)
   const estCapped = est.slice(0, 3);
   const estEpsFirst = estCapped[0]?.estimatedEpsAvg;
@@ -130,11 +139,13 @@ export const processData = (raw) => {
     symbol: q?.symbol, name: p?.companyName, sector: p?.sector, industry: p?.industry,
     description: p?.description, price: currentPrice, marketCap: q?.marketCap,
     revenueCurrent, revenueGrowth, netMargin, epsCurrent, epsGrowth,
-    equity, netDebt, netDebtDecreasing, fcfCurrent, fcfGrowth,
+    equity, netDebt, netDebtDecreasing, fcfCurrent, fcfGrowth, fcfPerShare,
     debtToEbitda, roic, roe, sharesCurrent, sharesDecreasing,
     payoutRatio, divToFcf, capex, capexGrowing,
     profitsVsDebt, cashFollowsEarnings, dividendCoveredByEarnings,
-    peCurrent, peHistorical, forwardPE, forwardPEYear, analystEpsGrowth, analystRevGrowth,
+    peCurrent, peHistorical, forwardPE, forwardPEYear,
+    pfcfCurrent, pfcfHistorical,
+    analystEpsGrowth, analystRevGrowth,
     dividendYield, dividendPerShare, divGrowth,
     priceTarget, analystRating,
     inc, cf, met, rat, est, divs, bal,
@@ -178,12 +189,18 @@ export const computeMetricsForPeriod = (stock, periodYears) => {
   return { ...stock, revenueGrowth, epsGrowth, fcfGrowth, sharesDecreasing, netDebtDecreasing, capexGrowing };
 };
 
-export const calculateDCF = (data, assumptions, years = 5, targetReturn = 0.10) => {
-  const { price, epsCurrent, dividendPerShare } = data;
-  const { epsGrowth, peExit, divGrowthRate } = assumptions;
-  if (!epsCurrent || !price || !peExit || epsGrowth == null) return null;
-  const epsFuture = epsCurrent * Math.pow(1 + epsGrowth, years);
-  const priceFuture = epsFuture * peExit;
+// FCF-based DCF: grows FCF/share at fcfGrowth, applies P/FCF exit multiple,
+// then adds cumulated dividends. Returns implied annual return + fair value.
+export const calculateDCF = (data, assumptions, years = 3, targetReturn = 0.10) => {
+  const { price, fcfCurrent, sharesCurrent, dividendPerShare } = data;
+  const { fcfGrowth, pfcfExit, divGrowthRate } = assumptions;
+  if (!fcfCurrent || !sharesCurrent || !price || !pfcfExit || fcfGrowth == null) return null;
+  const fcfPerShare = fcfCurrent / sharesCurrent;
+  if (fcfPerShare <= 0) return null; // negative FCF — model invalid
+
+  const fcfFuture   = fcfPerShare * Math.pow(1 + fcfGrowth, years);
+  const priceFuture = fcfFuture * pfcfExit;
+
   const D = dividendPerShare || 0;
   const g = divGrowthRate || 0;
   let dividendsCumulated = 0;
@@ -192,10 +209,11 @@ export const calculateDCF = (data, assumptions, years = 5, targetReturn = 0.10) 
   } else if (D > 0) {
     dividendsCumulated = D * years;
   }
-  const totalValue = priceFuture + dividendsCumulated;
-  const returnWithDivs = Math.pow(totalValue / price, 1 / years) - 1;
-  const returnNoDivs = Math.pow(priceFuture / price, 1 / years) - 1;
-  const fairValue = totalValue / Math.pow(1 + targetReturn, years);
-  const marginOfSafety = (fairValue - price) / fairValue; // >0 = cheap, <0 = expensive
-  return { epsFuture, priceFuture, dividendsCumulated, totalValue, returnWithDivs, returnNoDivs, fairValue, marginOfSafety };
+
+  const totalValue     = priceFuture + dividendsCumulated;
+  const returnWithDivs = Math.pow(totalValue   / price, 1 / years) - 1;
+  const returnNoDivs   = Math.pow(priceFuture  / price, 1 / years) - 1;
+  const fairValue      = totalValue / Math.pow(1 + targetReturn, years);
+  const marginOfSafety = (fairValue - price) / fairValue; // >0 = undervalued
+  return { fcfFuture, priceFuture, dividendsCumulated, totalValue, returnWithDivs, returnNoDivs, fairValue, marginOfSafety };
 };

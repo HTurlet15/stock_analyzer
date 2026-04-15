@@ -61,12 +61,12 @@ export default function SyntheseSection({ stock, thresholds: t }) {
   const score  = computeScore(s, t);
   const verdict = VERDICT_CONFIG.find(v => score >= v.min);
 
-  // ── Quick DCF (base scenario) ─────────────────────────────────────────────
-  const epsGrowthUsed = s.analystEpsGrowth ?? s.epsGrowth ?? 0;
-  const peExit = s.peHistorical ?? s.peCurrent ?? 20;
+  // ── Quick DCF (FCF-based, base scenario) ─────────────────────────────────
+  const fcfGrowthUsed = s.fcfGrowth ?? 0.07;
+  const pfcfExit      = s.pfcfHistorical ?? s.pfcfCurrent ?? 20;
   const dcfAssumptions = {
-    epsGrowth:    epsGrowthUsed,
-    peExit,
+    fcfGrowth:    fcfGrowthUsed,
+    pfcfExit,
     divGrowthRate: s.divGrowth ?? 0,
   };
   const dcf = calculateDCF(s, dcfAssumptions, 3, t.fairValueTargetReturn ?? 0.10);
@@ -277,7 +277,7 @@ export default function SyntheseSection({ stock, thresholds: t }) {
                   : `+${(Math.abs(dcf.marginOfSafety) * 100).toFixed(0)}% au-dessus cours`}
               />
               <p className="syn-dcf-note">
-                BPA : {s.analystEpsGrowth != null ? "consensus analystes" : "CAGR historique"} ({pct(epsGrowthUsed)}/an) · PER sortie : {num(peExit, 1)}x
+                FCF CAGR : {pct(fcfGrowthUsed)}/an · P/FCF sortie : {num(pfcfExit, 1)}x
               </p>
             </>
           ) : (

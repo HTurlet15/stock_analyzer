@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { calculateDCF, num, pct } from "../utils";
+import { calculateDCF, num, pct, money } from "../utils";
 import "./DCFSection.css";
 
 const ScenarioCard = ({ label, result, color, years, currentPrice, targetReturn }) => {
@@ -51,30 +51,24 @@ const InputRow = ({ label, value, onChange, isPercent }) => (
 
 export default function DCFSection({ stock, thresholds, onUpdate }) {
   const s = stock;
+  const hasDividend  = s.dividendPerShare != null && s.dividendPerShare > 0;
+  const hasFcfData   = s.fcfCurrent != null && s.fcfCurrent > 0 && s.sharesCurrent != null;
+  const hasPfcfHist  = s.pfcfHistorical != null;
 
-  const hasDividend = s.dividendPerShare != null && s.dividendPerShare > 0;
-  const hasAnalystData = s.analystEpsGrowth != null;
+  // Detect old EPS/PE-based assumptions and replace with FCF defaults
+  const isOldFormat  = s.dcfAssumptions?.base?.epsGrowth !== undefined;
+  const fcfG   = s.fcfGrowth ?? 0.07;
+  const pfcfEx = s.pfcfHistorical ?? s.pfcfCurrent ?? 20;
+  const divG   = s.divGrowth ?? 0.04;
 
   const def = {
     years: 3,
-    bear: {
-      epsGrowth: Math.max(((s.analystEpsGrowth || s.epsGrowth || 0.05)) * 0.6, 0.01),
-      peExit: (s.peHistorical || s.peCurrent || 18) * 0.85,
-      divGrowthRate: (s.divGrowth || 0.03) * 0.6,
-    },
-    base: {
-      epsGrowth: s.analystEpsGrowth || s.epsGrowth || 0.08,
-      peExit: s.peHistorical || s.peCurrent || 20,
-      divGrowthRate: s.divGrowth || 0.05,
-    },
-    bull: {
-      epsGrowth: (s.analystEpsGrowth || s.epsGrowth || 0.08) * 1.4,
-      peExit: (s.peHistorical || s.peCurrent || 20) * 1.2,
-      divGrowthRate: (s.divGrowth || 0.05) * 1.4,
-    },
+    bear: { fcfGrowth: Math.max(fcfG * 0.6, 0.01), pfcfExit: Math.max(pfcfEx * 0.85, 5), divGrowthRate: divG * 0.6 },
+    base: { fcfGrowth: fcfG,       pfcfExit: pfcfEx,           divGrowthRate: divG       },
+    bull: { fcfGrowth: fcfG * 1.4, pfcfExit: pfcfEx * 1.2,     divGrowthRate: divG * 1.4 },
   };
 
-  const [assum, setAssum] = useState(s.dcfAssumptions || def);
+  const [assum, setAssum] = useState((!isOldFormat && s.dcfAssumptions) || def);
   const tr = thresholds?.fairValueTargetReturn ?? 0.10;
   const bearResult = calculateDCF(s, assum.bear, assum.years, tr);
   const baseResult = calculateDCF(s, assum.base, assum.years, tr);
@@ -88,27 +82,40 @@ export default function DCFSection({ stock, thresholds, onUpdate }) {
   const update = (scenario, field, value) =>
     setAssum((p) => ({ ...p, [scenario]: { ...p[scenario], [field]: value } }));
 
+  const fcfPerShare = hasFcfData ? s.fcfCurrent / s.sharesCurrent : null;
+  const fcfYield    = fcfPerShare != null && s.price ? fcfPerShare / s.price : null;
+
   return (
     <div className="dcf-section">
-      {/* Ancres */}
+
+      {!hasFcfData && (
+        <div className="dcf-warning">
+          FCF ou nombre d'actions manquant — le modèle DCF ne peut pas calculer de résultat.
+          Essaie d'actualiser les données via le bouton ↻.
+        </div>
+      )}
+
+      {/* Anchors */}
       <div className="dcf-anchors">
         <div className="dcf-anchors-header">
-          <p className="section-label" style={{ marginBottom: 0 }}>Ancres historiques</p>
-          <span className={`source-tag ${hasAnalystData ? "green" : "orange"}`}>
-            {hasAnalystData ? "Consensus analystes disponible" : "Pas de consensus — fallback CAGR historique"}
+          <p className="section-label" style={{ marginBottom: 0 }}>Données d'ancrage — modèle FCF</p>
+          <span className="source-tag orange">
+            Estimations FCF analystes non disponibles (tier gratuit) — modèle basé sur CAGR historique
           </span>
         </div>
         <div className="anchor-chips">
           {[
-            { label: "BPA actuel",      val: `$${num(s.epsCurrent)}` },
-            { label: "BPA CAGR 5a",     val: pct(s.epsGrowth) },
-            { label: "BPA analystes",   val: s.analystEpsGrowth != null ? pct(s.analystEpsGrowth) : "N/A", highlight: hasAnalystData },
-            { label: "PER actuel",      val: `${num(s.peCurrent, 1)}x` },
-            { label: "PER moyen 5a",    val: `${num(s.peHistorical, 1)}x` },
-            { label: "Div./action",     val: hasDividend ? `$${num(s.dividendPerShare)}` : "N/A" },
-            { label: "Div. CAGR",       val: hasDividend ? pct(s.divGrowth) : "N/A" },
-            { label: "Prix actuel",     val: `$${num(s.price)}` },
-            { label: "Obj. analystes",  val: s.priceTarget?.consensus != null ? `$${num(s.priceTarget.consensus, 0)}` : "N/A",
+            { label: "FCF total (dernier)",   val: money(s.fcfCurrent) },
+            { label: "FCF / action",           val: fcfPerShare != null ? `$${num(fcfPerShare)}` : "N/A" },
+            { label: "FCF Yield",              val: fcfYield != null ? pct(fcfYield) : "N/A", highlight: fcfYield != null && fcfYield > 0.04 },
+            { label: "FCF CAGR historique",    val: s.fcfGrowth != null ? pct(s.fcfGrowth) : "N/A", highlight: s.fcfGrowth != null && s.fcfGrowth > 0.08 },
+            { label: "P/FCF actuel",           val: s.pfcfCurrent != null ? `${num(s.pfcfCurrent, 1)}x` : "N/A" },
+            { label: `P/FCF moy. historique`,  val: hasPfcfHist ? `${num(s.pfcfHistorical, 1)}x` : "N/A", highlight: hasPfcfHist },
+            { label: "BPA analystes (proxy)",  val: s.analystEpsGrowth != null ? pct(s.analystEpsGrowth) : "N/A", highlight: s.analystEpsGrowth != null },
+            { label: "Div./action",            val: hasDividend ? `$${num(s.dividendPerShare)}` : "N/A" },
+            { label: "Div. CAGR",              val: hasDividend ? pct(s.divGrowth) : "N/A" },
+            { label: "Prix actuel",            val: `$${num(s.price)}` },
+            { label: "Obj. analystes",         val: s.priceTarget?.consensus != null ? `$${num(s.priceTarget.consensus, 0)}` : "N/A",
               highlight: s.priceTarget?.consensus > s.price },
           ].map((a) => (
             <div key={a.label} className={`anchor-chip ${a.highlight ? "highlight" : ""}`}>
@@ -134,14 +141,14 @@ export default function DCFSection({ stock, thresholds, onUpdate }) {
       {/* Grid 3 scénarios */}
       <div className="dcf-grid">
         {[
-          { key: "bear", label: "Bear",                     color: "red"  },
-          { key: "base", label: "Base — Consensus analystes", color: "blue" },
-          { key: "bull", label: "Bull",                     color: "green"},
+          { key: "bear", label: "Bear",         color: "red"   },
+          { key: "base", label: "Base",          color: "blue"  },
+          { key: "bull", label: "Bull",          color: "green" },
         ].map(({ key, label, color }) => (
           <div key={key} className="dcf-col">
             <p className={`scenario-header ${color}`}>{label}</p>
-            <InputRow label="Croissance BPA"      value={assum[key].epsGrowth}    onChange={(v) => update(key, "epsGrowth", v)}    isPercent />
-            <InputRow label="PER de sortie"       value={assum[key].peExit}       onChange={(v) => update(key, "peExit", v)}       isPercent={false} />
+            <InputRow label="Croissance FCF"    value={assum[key].fcfGrowth}    onChange={(v) => update(key, "fcfGrowth", v)}    isPercent />
+            <InputRow label="P/FCF de sortie"   value={assum[key].pfcfExit}     onChange={(v) => update(key, "pfcfExit", v)}     isPercent={false} />
             {hasDividend
               ? <InputRow label="Croissance dividende" value={assum[key].divGrowthRate} onChange={(v) => update(key, "divGrowthRate", v)} isPercent />
               : <div className="input-row"><span className="input-label">Croissance dividende</span><span className="input-na">N/A</span></div>
@@ -159,7 +166,7 @@ export default function DCFSection({ stock, thresholds, onUpdate }) {
       </div>
 
       <p className="dcf-disclaimer">
-        Ces projections reposent sur tes hypothèses. N'investis que si le scénario Bear dépasse ton seuil minimum (ex : 8%/an).
+        Modèle FCF — Prix futur = (FCF/action × (1+g)^n) × P/FCF sortie. N'investis que si le scénario Bear dépasse ton seuil minimum. Les estimations FCF par les analystes ne sont pas disponibles en tier gratuit : ajuste manuellement selon tes recherches.
       </p>
     </div>
   );

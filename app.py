@@ -430,6 +430,7 @@ def get_stock(symbol):
     for item in income:
         date_str   = item["date"]
         bal_row    = get_for_year(balance,  date_str)
+        cf_row     = get_for_year(cashflow, date_str)
         net_income = item.get("netIncome")
         equity     = bal_row.get("totalStockholdersEquity")
         total_debt = bal_row.get("totalDebt")
@@ -438,6 +439,7 @@ def get_stock(symbol):
         revenue    = item.get("revenue")
         ebitda     = item.get("ebitda")
         shares     = item.get("weightedAverageShsOut")
+        fcf_val    = cf_row.get("freeCashFlow")
         hist_price = price_history.get(date_str)
 
         roe  = clean(net_income / equity) if net_income and equity and equity > 0 else None
@@ -452,12 +454,15 @@ def get_stock(symbol):
         mc             = clean(hist_price * shares)                 if hist_price and shares                                               else None
         ev_to_ebitda   = clean((hist_price * shares + net_debt) / ebitda) \
                          if hist_price and shares and net_debt is not None and ebitda and ebitda > 0 else None
+        pfcf_ratio     = clean(hist_price / (fcf_val / shares)) \
+                         if hist_price and fcf_val and fcf_val > 0 and shares and shares > 0 else None
 
         metrics.append({
             "date":         date_str,
             "roic":         roic,
             "roe":          roe,
             "peRatio":      pe_ratio,
+            "pfcfRatio":    pfcf_ratio,
             "priceToSales": price_to_sales,
             "priceToBook":  price_to_book,
             "evToEbitda":   ev_to_ebitda,

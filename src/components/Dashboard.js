@@ -19,9 +19,7 @@ function SettingsPanel({ thresholds, onChange, onClose }) {
   const handleChange = (key, raw, isPct) => {
     const val = parse(raw, isPct);
     if (val === null) return;
-    const updated = { ...thresholds, [key + "Good"]: val };
-    // Keep ok slightly worse than good if not specified separately
-    onChange(updated);
+    onChange({ ...thresholds, [key + "Good"]: val });
   };
 
   const handleOkChange = (key, raw, isPct) => {
@@ -100,6 +98,24 @@ function SettingsPanel({ thresholds, onChange, onClose }) {
   );
 }
 
+// ── FCF default assumptions ──────────────────────────────────────────────────
+// Builds bear/base/bull DCF assumptions from processed stock data.
+// Detects old EPS-based format and migrates to FCF-based.
+
+const isOldFormat = (assum) => assum?.base?.epsGrowth !== undefined;
+
+const makeDcfDefaults = (processed, years) => {
+  const fcfG   = processed.fcfGrowth ?? 0.07;
+  const pfcfEx = processed.pfcfHistorical ?? processed.pfcfCurrent ?? 20;
+  const divG   = processed.divGrowth ?? 0.04;
+  return {
+    years,
+    bear: { fcfGrowth: Math.max(fcfG * 0.6, 0.01), pfcfExit: Math.max(pfcfEx * 0.85, 5), divGrowthRate: divG * 0.6 },
+    base: { fcfGrowth: fcfG,        pfcfExit: pfcfEx,           divGrowthRate: divG       },
+    bull: { fcfGrowth: fcfG * 1.4,  pfcfExit: pfcfEx * 1.2,     divGrowthRate: divG * 1.4 },
+  };
+};
+
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
@@ -112,6 +128,7 @@ export default function Dashboard() {
   const [error, setError] = useState("");
   const [thresholds, setThresholds] = useState(() => loadThresholds());
   const [showSettings, setShowSettings] = useState(false);
+  const [refreshingAll, setRefreshingAll] = useState(false);
 
   // Persist watchlist to localStorage on every change
   useEffect(() => {
@@ -138,21 +155,12 @@ export default function Dashboard() {
       const processed = processData(raw);
       if (!processed.name) throw new Error("Entreprise introuvable.");
 
-      // Auto-compute DCF base scenario so header badge shows immediately
-      const epsG = processed.analystEpsGrowth ?? processed.epsGrowth ?? 0.08;
-      const peEx = processed.peHistorical ?? processed.peCurrent ?? 20;
-      const divG = processed.divGrowth ?? 0.05;
-      const dcfAssumptions = {
-        years: 5,
-        bear: { epsGrowth: Math.max(epsG * 0.6, 0.01), peExit: peEx * 0.85, divGrowthRate: divG * 0.6 },
-        base: { epsGrowth: epsG, peExit: peEx, divGrowthRate: divG },
-        bull: { epsGrowth: epsG * 1.4, peExit: peEx * 1.2, divGrowthRate: divG * 1.4 },
-      };
       const tr = thresholds.fairValueTargetReturn ?? 0.10;
+      const dcfAssumptions = makeDcfDefaults(processed, 3);
       const assumptions = {
-        bear: calculateDCF(processed, dcfAssumptions.bear, 5, tr),
-        base: calculateDCF(processed, dcfAssumptions.base, 5, tr),
-        bull: calculateDCF(processed, dcfAssumptions.bull, 5, tr),
+        bear: calculateDCF(processed, dcfAssumptions.bear, 3, tr),
+        base: calculateDCF(processed, dcfAssumptions.base, 3, tr),
+        bull: calculateDCF(processed, dcfAssumptions.bull, 3, tr),
       };
       setWatchlist((prev) => [...prev, { ...processed, raw, moat: null, management: null, assumptions, dcfAssumptions }]);
       setInput("");
@@ -173,26 +181,29 @@ export default function Dashboard() {
       const tr = thresholds.fairValueTargetReturn ?? 0.10;
       setWatchlist((prev) => prev.map((s) => {
         if (s.symbol !== symbol) return s;
-        const epsG = processed.analystEpsGrowth ?? processed.epsGrowth ?? 0.08;
-        const peEx = processed.peHistorical ?? processed.peCurrent ?? 20;
-        const divG = processed.divGrowth ?? 0.05;
-        const dcfAssumptions = {
-          years: 3,
-          bear: { epsGrowth: Math.max(epsG * 0.6, 0.01), peExit: peEx * 0.85, divGrowthRate: divG * 0.6 },
-          base: { epsGrowth: epsG, peExit: peEx, divGrowthRate: divG },
-          bull: { epsGrowth: epsG * 1.4, peExit: peEx * 1.2, divGrowthRate: divG * 1.4 },
-        };
+        // Migrate old EPS-based assumptions to new FCF-based ones
+        const storedAssum = isOldFormat(s.dcfAssumptions) ? null : s.dcfAssumptions;
+        const dcfAssumptions = storedAssum || makeDcfDefaults(processed, 3);
         const assumptions = {
-          bear: calculateDCF(processed, dcfAssumptions.bear, 3, tr),
-          base: calculateDCF(processed, dcfAssumptions.base, 3, tr),
-          bull: calculateDCF(processed, dcfAssumptions.bull, 3, tr),
+          bear: calculateDCF(processed, dcfAssumptions.bear, dcfAssumptions.years ?? 3, tr),
+          base: calculateDCF(processed, dcfAssumptions.base, dcfAssumptions.years ?? 3, tr),
+          bull: calculateDCF(processed, dcfAssumptions.bull, dcfAssumptions.years ?? 3, tr),
         };
-        // Keep manual annotations (moat, management, custom dcfAssumptions)
-        return { ...s, ...processed, raw, assumptions, dcfAssumptions: s.dcfAssumptions || dcfAssumptions, refreshing: false, lastUpdated: new Date().toISOString() };
+        return { ...s, ...processed, raw, assumptions, dcfAssumptions, refreshing: false, lastUpdated: new Date().toISOString() };
       }));
     } catch {
       setWatchlist((prev) => prev.map((s) => s.symbol === symbol ? { ...s, refreshing: false } : s));
     }
+  };
+
+  const refreshAll = async () => {
+    if (refreshingAll || watchlist.length === 0) return;
+    setRefreshingAll(true);
+    const symbols = watchlist.map(s => s.symbol);
+    for (const symbol of symbols) {
+      await refreshStock(symbol);
+    }
+    setRefreshingAll(false);
   };
 
   const updateStock = (symbol, updates) =>
@@ -206,6 +217,8 @@ export default function Dashboard() {
     return rb - ra;
   });
 
+  const anyRefreshing = refreshingAll || watchlist.some(s => s.refreshing);
+
   return (
     <div className="dashboard">
       <header className="dash-header">
@@ -214,13 +227,25 @@ export default function Dashboard() {
             <div className="dash-logo">StockAnalyzer</div>
             <p className="dash-subtitle">Analyse fondamentale · DCF · MOAT · Ranking</p>
           </div>
-          <button
-            className={`btn-settings ${showSettings ? "active" : ""}`}
-            onClick={() => setShowSettings(v => !v)}
-            title="Paramètres des seuils"
-          >
-            Seuils
-          </button>
+          <div className="dash-header-actions">
+            {watchlist.length > 0 && (
+              <button
+                className={`btn-refresh-all ${anyRefreshing ? "loading" : ""}`}
+                onClick={refreshAll}
+                disabled={anyRefreshing}
+                title="Actualiser tous les cours et données"
+              >
+                {refreshingAll ? "Actualisation…" : "↻ Tout actualiser"}
+              </button>
+            )}
+            <button
+              className={`btn-settings ${showSettings ? "active" : ""}`}
+              onClick={() => setShowSettings(v => !v)}
+              title="Paramètres des seuils"
+            >
+              Seuils
+            </button>
+          </div>
         </div>
         {showSettings && (
           <SettingsPanel
