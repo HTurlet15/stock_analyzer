@@ -9,6 +9,14 @@ from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 import yfinance as yf
+try:
+    import anthropic as _anthropic
+except ImportError:
+    _anthropic = None
+try:
+    from tavily import TavilyClient as _TavilyClient
+except ImportError:
+    _TavilyClient = None
 
 load_dotenv()
 
@@ -108,7 +116,7 @@ def av_income(symbol):
             "revenue":               av_clean(r.get("totalRevenue")),
             "netIncome":             av_clean(r.get("netIncome")),
             "ebitda":                ebitda,
-            "eps":                   av_clean(r.get("reportedEPS")) or av_clean(r.get("basicEPS")),
+            "eps":                   av_clean(r.get("reportedEPS")) or av_clean(r.get("dilutedEPS")) or av_clean(r.get("basicEPS")),
             "weightedAverageShsOut": av_clean(r.get("commonStockSharesOutstanding")),
         })
     return result
@@ -444,9 +452,9 @@ def get_stock(symbol):
 
         roe  = clean(net_income / equity) if net_income and equity and equity > 0 else None
         roic = None
-        if net_income is not None and equity is not None and total_debt is not None:
-            invested = equity + total_debt
-            roic = clean(net_income / invested) if invested and invested > 0 else None
+        if net_income is not None and equity is not None and net_debt is not None:
+            invested = equity + net_debt
+            roic = clean(net_income / invested) if invested > 0 else None
 
         pe_ratio       = clean(hist_price / eps_val)               if hist_price and eps_val  and eps_val  > 0                            else None
         price_to_sales = clean(hist_price / (revenue / shares))    if hist_price and revenue  and shares   and shares > 0                 else None
@@ -487,7 +495,6 @@ def get_stock(symbol):
         ratios.append({
             "date":          date_str,
             "payoutRatio":   payout_ratio,
-            "currentRatio":  None,
             "debtToEquity":  debt_to_equity,
         })
     ratios.sort(key=lambda x: x["date"], reverse=True)
@@ -621,8 +628,7 @@ def analyze_stock(symbol, analysis_type):
     fin_summary = data.get("financialSummary", {})
 
     # ── Tavily web search ─────────────────────────────────────────────────────
-    from tavily import TavilyClient
-    tavily = TavilyClient(api_key=TAVILY_KEY)
+    tavily = _TavilyClient(api_key=TAVILY_KEY)
 
     if analysis_type == "moat":
         queries = [
@@ -773,8 +779,7 @@ Réponds avec ce JSON exact (analysis = 3-5 phrases avec faits précis, noms, da
 }}"""
 
     # ── Call Claude ───────────────────────────────────────────────────────────
-    import anthropic
-    client = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
+    client = _anthropic.Anthropic(api_key=ANTHROPIC_KEY)
     msg = client.messages.create(
         model="claude-sonnet-4-5",
         max_tokens=3000,

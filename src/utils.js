@@ -60,7 +60,7 @@ export const processData = (raw) => {
 
   const revenueCurrent = latestInc.revenue;
   const revenueGrowth = cagrSeries(inc, 'revenue');
-  const netMargin = latestInc.netIncome && latestInc.revenue ? latestInc.netIncome / latestInc.revenue : null;
+  const netMargin = latestInc.netIncome != null && latestInc.revenue ? latestInc.netIncome / latestInc.revenue : null;
   const epsCurrent = latestInc.eps;
   const epsGrowth = cagrSeries(inc, 'eps');
   const equity = latestBal.totalStockholdersEquity;
@@ -69,9 +69,11 @@ export const processData = (raw) => {
   const netDebtDecreasing = netDebtOld != null && netDebt != null && netDebt < netDebtOld;
   const fcfCurrent = latestCF.freeCashFlow;
   const fcfGrowth = cagrSeries(cf, 'freeCashFlow');
+  const fcfValidCf = cf.filter(r => r.freeCashFlow != null && r.freeCashFlow > 0);
+  const fcfGrowthYears = fcfValidCf.length >= 2 ? fcfValidCf.length - 1 : null;
   const ebitda = latestInc.ebitda;
   const totalDebt = latestBal.totalDebt;
-  const debtToEbitda = ebitda && totalDebt ? totalDebt / ebitda : null;
+  const debtToEbitda = ebitda && ebitda > 0 && netDebt != null ? netDebt / ebitda : null;
   const roic = latestMet.roic;
   const roe = latestMet.roe;
   const sharesCurrent = latestInc.weightedAverageShsOut;
@@ -86,12 +88,13 @@ export const processData = (raw) => {
   const capex    = capexValid.length > 0 ? Math.abs(capexValid[0].capitalExpenditure) : null;
   const capexOld = capexValid.length > 1 ? Math.abs(capexValid[capexValid.length - 1].capitalExpenditure) : null;
   const capexGrowing = capex != null && capexOld != null && capex > capexOld;
-  const profitsVsDebt = latestInc.netIncome && netDebt ? latestInc.netIncome > 0 && (netDebt / latestInc.netIncome) < 5 : null;
-  const cashFollowsEarnings = fcfCurrent && latestInc.netIncome ? fcfCurrent / latestInc.netIncome > 0.7 : null;
-  const dividendCoveredByEarnings = dividendsPaid && latestInc.netIncome ? dividendsPaid < latestInc.netIncome : null;
+  const profitsVsDebt = latestInc.netIncome != null && netDebt != null ? latestInc.netIncome > 0 && (netDebt / latestInc.netIncome) < 5 : null;
+  const cashFollowsEarnings = fcfCurrent != null && latestInc.netIncome > 0 ? fcfCurrent / latestInc.netIncome > 0.7 : null;
+  const dividendCoveredByEarnings = dividendsPaid && latestInc.netIncome != null && latestInc.netIncome > 0 ? dividendsPaid < latestInc.netIncome : null;
 
   const peCurrent = q?.pe;
-  const peHistorical = met.length > 0 ? met.reduce((sum, m) => sum + (m.peRatio || 0), 0) / met.filter(m => m.peRatio).length : null;
+  const peValid = met.filter(m => m.peRatio != null && m.peRatio > 0 && m.peRatio < 100);
+  const peHistorical = peValid.length > 0 ? peValid.reduce((s, m) => s + m.peRatio, 0) / peValid.length : null;
   const fwdEps = est[0]?.estimatedEpsAvg;
   const currentPrice = q?.price;
   const forwardPE = fwdEps && currentPrice ? currentPrice / fwdEps : null;
@@ -100,9 +103,10 @@ export const processData = (raw) => {
   // FCF per share + historical P/FCF (filter outliers >200x to avoid distortion)
   const fcfPerShare = fcfCurrent != null && sharesCurrent != null && sharesCurrent > 0
     ? fcfCurrent / sharesCurrent : null;
-  const pfcfValid = met.filter(m => m.pfcfRatio != null && m.pfcfRatio > 0 && m.pfcfRatio < 200);
+  const pfcfValid = met.filter(m => m.pfcfRatio != null && m.pfcfRatio > 0 && m.pfcfRatio < 200).slice(0, 7);
   const pfcfHistorical = pfcfValid.length > 0
     ? pfcfValid.reduce((s, m) => s + m.pfcfRatio, 0) / pfcfValid.length : null;
+  const pfcfHistoricalYears = pfcfValid.length > 0 ? pfcfValid.length : null;
   const pfcfCurrent = fcfPerShare != null && fcfPerShare > 0 && currentPrice
     ? currentPrice / fcfPerShare : null;
 
@@ -110,11 +114,11 @@ export const processData = (raw) => {
   const estCapped = est.slice(0, 3);
   const estEpsFirst = estCapped[0]?.estimatedEpsAvg;
   const estEpsLast = estCapped[estCapped.length - 1]?.estimatedEpsAvg;
-  const estYears = estCapped.length > 1 ? estCapped.length - 1 : 1;
-  const analystEpsGrowth = cagr(estEpsFirst, estEpsLast, estYears);
+  const estYears = estCapped.length - 1;
+  const analystEpsGrowth = estCapped.length >= 2 ? cagr(estEpsFirst, estEpsLast, estYears) : null;
   const estRevFirst = estCapped[0]?.estimatedRevenueAvg;
   const estRevLast = estCapped[estCapped.length - 1]?.estimatedRevenueAvg;
-  const analystRevGrowth = cagr(estRevFirst, estRevLast, estYears);
+  const analystRevGrowth = estCapped.length >= 2 ? cagr(estRevFirst, estRevLast, estYears) : null;
 
   const dividendYield = q?.dividendYield;
   const dividendPerShare = q?.lastDiv;
@@ -139,12 +143,12 @@ export const processData = (raw) => {
     symbol: q?.symbol, name: p?.companyName, sector: p?.sector, industry: p?.industry,
     description: p?.description, price: currentPrice, marketCap: q?.marketCap,
     revenueCurrent, revenueGrowth, netMargin, epsCurrent, epsGrowth,
-    equity, netDebt, netDebtDecreasing, fcfCurrent, fcfGrowth, fcfPerShare,
+    equity, netDebt, netDebtDecreasing, fcfCurrent, fcfGrowth, fcfGrowthYears, fcfPerShare,
     debtToEbitda, roic, roe, sharesCurrent, sharesDecreasing,
     payoutRatio, divToFcf, capex, capexGrowing,
     profitsVsDebt, cashFollowsEarnings, dividendCoveredByEarnings,
     peCurrent, peHistorical, forwardPE, forwardPEYear,
-    pfcfCurrent, pfcfHistorical,
+    pfcfCurrent, pfcfHistorical, pfcfHistoricalYears,
     analystEpsGrowth, analystRevGrowth,
     dividendYield, dividendPerShare, divGrowth,
     priceTarget, analystRating,

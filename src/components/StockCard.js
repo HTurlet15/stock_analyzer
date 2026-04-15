@@ -164,9 +164,9 @@ const FinancialTable = ({ raw, period }) => {
     y => byYear(bal, y).netDebt, fM,
     v => trendDir(v, true), curBal.netDebt);
   row("Dette nette / EBITDA",
-    y => { const b = byYear(bal, y); const i = byYear(inc, y); return b.totalDebt && i.ebitda && i.ebitda > 0 ? b.totalDebt / i.ebitda : null; }, fR,
+    y => { const b = byYear(bal, y); const i = byYear(inc, y); return b.netDebt != null && i.ebitda && i.ebitda > 0 ? b.netDebt / i.ebitda : null; }, fR,
     v => trendLevel(v, 2, 3, true),
-    curBal.totalDebt && curInc.ebitda && curInc.ebitda > 0 ? curBal.totalDebt / curInc.ebitda : null);
+    curBal.netDebt != null && curInc.ebitda && curInc.ebitda > 0 ? curBal.netDebt / curInc.ebitda : null);
 
   // Cash Flow
   sec("Cash Flow");
