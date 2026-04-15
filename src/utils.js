@@ -100,9 +100,11 @@ export const processData = (raw) => {
   const forwardPE = fwdEps && currentPrice ? currentPrice / fwdEps : null;
   const forwardPEYear = est[0]?.date ? est[0].date.slice(0, 4) : null;
 
-  // FCF per share + historical P/FCF (filter outliers >200x to avoid distortion)
-  const fcfPerShare = fcfCurrent != null && sharesCurrent != null && sharesCurrent > 0
-    ? fcfCurrent / sharesCurrent : null;
+  // FCF per share — use market-cap-implied shares to stay in sync with current price
+  // (handles recent splits where the latest income statement still shows pre-split share count)
+  const impliedShares = q?.marketCap && currentPrice ? q.marketCap / currentPrice : sharesCurrent;
+  const fcfPerShare = fcfCurrent != null && impliedShares != null && impliedShares > 0
+    ? fcfCurrent / impliedShares : null;
   const pfcfValid = met.filter(m => m.pfcfRatio != null && m.pfcfRatio > 0 && m.pfcfRatio < 200).slice(0, 7);
   const pfcfHistorical = pfcfValid.length > 0
     ? pfcfValid.reduce((s, m) => s + m.pfcfRatio, 0) / pfcfValid.length : null;
@@ -144,6 +146,7 @@ export const processData = (raw) => {
     description: p?.description, price: currentPrice, marketCap: q?.marketCap,
     revenueCurrent, revenueGrowth, netMargin, epsCurrent, epsGrowth,
     equity, netDebt, netDebtDecreasing, fcfCurrent, fcfGrowth, fcfGrowthYears, fcfPerShare,
+    impliedShares,
     debtToEbitda, roic, roe, sharesCurrent, sharesDecreasing,
     payoutRatio, divToFcf, capex, capexGrowing,
     profitsVsDebt, cashFollowsEarnings, dividendCoveredByEarnings,
@@ -196,10 +199,11 @@ export const computeMetricsForPeriod = (stock, periodYears) => {
 // FCF-based DCF: grows FCF/share at fcfGrowth, applies P/FCF exit multiple,
 // then adds cumulated dividends. Returns implied annual return + fair value.
 export const calculateDCF = (data, assumptions, years = 3, targetReturn = 0.10) => {
-  const { price, fcfCurrent, sharesCurrent, dividendPerShare } = data;
+  const { price, fcfCurrent, sharesCurrent, impliedShares, dividendPerShare } = data;
   const { fcfGrowth, pfcfExit, divGrowthRate } = assumptions;
-  if (!fcfCurrent || !sharesCurrent || !price || !pfcfExit || fcfGrowth == null) return null;
-  const fcfPerShare = fcfCurrent / sharesCurrent;
+  const effectiveShares = impliedShares ?? sharesCurrent;
+  if (!fcfCurrent || !effectiveShares || !price || !pfcfExit || fcfGrowth == null) return null;
+  const fcfPerShare = fcfCurrent / effectiveShares;
   if (fcfPerShare <= 0) return null; // negative FCF — model invalid
 
   const fcfFuture   = fcfPerShare * Math.pow(1 + fcfGrowth, years);

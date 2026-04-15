@@ -422,7 +422,7 @@ def get_stock(symbol):
     # ── Price history (max range to cover AV's 20-year data) ─────────────────
     price_history = {}
     try:
-        hist = ticker.history(period="max", interval="1mo")
+        hist = ticker.history(period="max", interval="1mo", auto_adjust=False)
         if hist is not None and not hist.empty:
             hist.index = hist.index.tz_localize(None) if hist.index.tz is not None else hist.index
             for entry in income:

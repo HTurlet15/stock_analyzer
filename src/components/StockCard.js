@@ -270,7 +270,16 @@ const TABS = [
 // ── StockCard ────────────────────────────────────────────────────────────────
 
 export default function StockCard({ stock, thresholds, onRemove, onUpdate, onRefresh }) {
-  const [expanded, setExpanded] = useState(true);
+  const lsKey = `sc_expanded_${stock.symbol}`;
+  const [expanded, setExpanded] = useState(() => {
+    const saved = localStorage.getItem(lsKey);
+    return saved === null ? true : saved === "1";
+  });
+  const toggleExpanded = () => setExpanded(v => {
+    const next = !v;
+    localStorage.setItem(lsKey, next ? "1" : "0");
+    return next;
+  });
   const [activeTab, setActiveTab] = useState("synthese");
   const [period, setPeriod] = useState(5);
   const s = stock;
@@ -302,7 +311,7 @@ export default function StockCard({ stock, thresholds, onRemove, onUpdate, onRef
   return (
     <div className="stock-card fade-in">
       {/* ── Header ── */}
-      <div className="sc-header" onClick={() => setExpanded(!expanded)}>
+      <div className="sc-header" onClick={toggleExpanded}>
         <div className="sc-header-left">
           <div className="sc-symbol">{s.symbol}</div>
           <div className="sc-name-wrap">
