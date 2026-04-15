@@ -167,16 +167,21 @@ export const processData = (raw) => {
   };
 };
 
-// Recompute period-sensitive metrics (CAGR, trend checks) for a given window.
-// Non-CAGR metrics (margins, ROIC, ROE, ratios) stay anchored to the latest year.
+// Recompute all period-sensitive metrics for a given window.
+// Returns the effective number of years actually used (capped by available data).
 export const computeMetricsForPeriod = (stock, periodYears) => {
-  const { inc, cf, bal } = stock;
-  if (!inc?.length) return stock;
+  const { inc, cf, bal, met } = stock;
+  if (!inc?.length) return { ...stock, effectivePeriodYears: 0 };
 
-  const limit = periodYears === "max" ? undefined : periodYears + 1;
-  const incSlice = limit ? inc.slice(0, limit) : inc;
-  const cfSlice  = limit ? (cf  || []).slice(0, limit) : (cf  || []);
-  const balSlice = limit ? (bal || []).slice(0, limit) : (bal || []);
+  // Cap to available data — e.g. FMP free tier often has only 5 years
+  const maxYears = inc.length - 1;
+  const wantedYears = periodYears === "max" ? maxYears : Math.min(periodYears, maxYears);
+  const limit = wantedYears + 1;
+
+  const incSlice = inc.slice(0, limit);
+  const cfSlice  = (cf  || []).slice(0, limit);
+  const balSlice = (bal || []).slice(0, limit);
+  const metSlice = (met || []).slice(0, limit);
 
   const cagrSeries = (arr, key) => {
     const valid = arr.filter(r => r[key] != null && r[key] > 0);
@@ -184,24 +189,48 @@ export const computeMetricsForPeriod = (stock, periodYears) => {
     return cagr(valid[valid.length - 1][key], valid[0][key], valid.length - 1);
   };
 
+  // Growth metrics — period-sensitive
   const revenueGrowth = cagrSeries(incSlice, 'revenue');
   const epsGrowth     = cagrSeries(incSlice, 'eps');
   const fcfGrowth     = cagrSeries(cfSlice,  'freeCashFlow');
 
-  const sharesCurrent  = (incSlice[0] || {}).weightedAverageShsOut;
-  const sharesOld      = (incSlice[incSlice.length - 1] || {}).weightedAverageShsOut;
-  const sharesDecreasing = sharesOld != null && sharesCurrent != null ? sharesCurrent <= sharesOld : null;
+  // Margin — average over the period (not just latest year)
+  const netMargins = incSlice
+    .filter(r => r.netIncome != null && r.revenue != null && r.revenue > 0)
+    .map(r => r.netIncome / r.revenue);
+  const netMargin = netMargins.length > 0
+    ? netMargins.reduce((a, b) => a + b, 0) / netMargins.length
+    : stock.netMargin;
 
+  // ROIC / ROE — average over the period
+  const roicVals = metSlice.filter(r => r.roic != null).map(r => r.roic);
+  const roeVals  = metSlice.filter(r => r.roe  != null).map(r => r.roe);
+  const roic = roicVals.length > 0 ? roicVals.reduce((a, b) => a + b, 0) / roicVals.length : stock.roic;
+  const roe  = roeVals.length  > 0 ? roeVals.reduce( (a, b) => a + b, 0) / roeVals.length  : stock.roe;
+
+  // Debt trend — compare start vs end of the period
   const netDebt    = (balSlice[0]  || {}).netDebt;
   const netDebtOld = (balSlice[balSlice.length - 1] || {}).netDebt;
   const netDebtDecreasing = netDebtOld != null && netDebt != null ? netDebt < netDebtOld : stock.netDebtDecreasing;
 
-  const capexValid   = cfSlice.filter(r => r.capitalExpenditure != null && r.capitalExpenditure !== 0);
-  const capex        = capexValid.length > 0 ? Math.abs(capexValid[0].capitalExpenditure) : null;
-  const capexOld     = capexValid.length > 1 ? Math.abs(capexValid[capexValid.length - 1].capitalExpenditure) : null;
+  // Shares
+  const sharesCurrent  = (incSlice[0] || {}).weightedAverageShsOut;
+  const sharesOld      = (incSlice[incSlice.length - 1] || {}).weightedAverageShsOut;
+  const sharesDecreasing = sharesOld != null && sharesCurrent != null ? sharesCurrent <= sharesOld : null;
+
+  // Capex trend
+  const capexValid = cfSlice.filter(r => r.capitalExpenditure != null && r.capitalExpenditure !== 0);
+  const capex      = capexValid.length > 0 ? Math.abs(capexValid[0].capitalExpenditure) : null;
+  const capexOld   = capexValid.length > 1 ? Math.abs(capexValid[capexValid.length - 1].capitalExpenditure) : null;
   const capexGrowing = capex != null && capexOld != null ? capex > capexOld : stock.capexGrowing;
 
-  return { ...stock, revenueGrowth, epsGrowth, fcfGrowth, sharesDecreasing, netDebtDecreasing, capexGrowing };
+  return {
+    ...stock,
+    revenueGrowth, epsGrowth, fcfGrowth,
+    netMargin, roic, roe,
+    sharesDecreasing, netDebtDecreasing, capexGrowing,
+    effectivePeriodYears: wantedYears,
+  };
 };
 
 // FCF-based DCF: grows FCF/share at fcfGrowth, applies P/FCF exit multiple,

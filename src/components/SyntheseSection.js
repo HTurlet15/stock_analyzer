@@ -52,9 +52,11 @@ export default function SyntheseSection({ stock, thresholds: t }) {
   const [period, setPeriod] = useState(5);
   const [showScoreDetail, setShowScoreDetail] = useState(false);
 
-  // Recompute CAGR and trend checks for the selected window
+  // Recompute all period-sensitive metrics for the selected window
   const s = computeMetricsForPeriod(stock, period);
-  const periodLabel = period === "max" ? "Max" : `${period} ans`;
+  const availableYears = stock.inc?.length ? stock.inc.length - 1 : 0;
+  const effectiveYears = s.effectivePeriodYears ?? availableYears;
+  const periodLabel = `${effectiveYears} ans`;
 
   // ── Score ─────────────────────────────────────────────────────────────────
   const score  = computeScore(s, t);
@@ -79,15 +81,21 @@ export default function SyntheseSection({ stock, thresholds: t }) {
       {/* ── Period selector ────────────────────────────────────────────────── */}
       <div className="syn-period-row">
         <span className="syn-period-label">Période d'analyse :</span>
-        {PERIODS.map(p => (
-          <button
-            key={p}
-            className={`syn-period-btn${period === p ? " active" : ""}`}
-            onClick={() => setPeriod(p)}
-          >
-            {p === "max" ? "Max" : `${p} ans`}
-          </button>
-        ))}
+        {PERIODS.map(p => {
+          const yrs = p === "max" ? availableYears : p;
+          const unavailable = yrs > availableYears;
+          return (
+            <button
+              key={p}
+              className={`syn-period-btn${period === p ? " active" : ""}${unavailable ? " unavailable" : ""}`}
+              onClick={() => !unavailable && setPeriod(p)}
+              title={unavailable ? `Données disponibles : ${availableYears} ans max` : ""}
+            >
+              {p === "max" ? "Max" : `${p} ans`}
+            </button>
+          );
+        })}
+        <span className="syn-period-available">{availableYears} ans disponibles</span>
       </div>
 
       {/* ── Verdict banner ─────────────────────────────────────────────────── */}

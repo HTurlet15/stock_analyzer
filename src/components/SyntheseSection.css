@@ -4,8 +4,10 @@
 .syn-period-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .syn-period-label { font-size: 11px; color: var(--text-muted); margin-right: 4px; }
 .syn-period-btn { padding: 4px 11px; border-radius: 5px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
-.syn-period-btn:hover { border-color: var(--border-bright); color: var(--text); }
+.syn-period-btn:hover:not(.unavailable) { border-color: var(--border-bright); color: var(--text); }
 .syn-period-btn.active { background: var(--accent-dim); border-color: rgba(79,70,229,.3); color: var(--accent); font-weight: 600; }
+.syn-period-btn.unavailable { opacity: 0.35; cursor: not-allowed; }
+.syn-period-available { font-size: 10px; color: var(--text-dim); margin-left: 4px; }
 
 /* Verdict banner */
 .verdict-banner { display: flex; align-items: center; gap: 20px; border-radius: 12px; padding: 20px 24px; border: 1px solid transparent; }
