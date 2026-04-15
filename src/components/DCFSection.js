@@ -52,7 +52,7 @@ const InputRow = ({ label, value, onChange, isPercent }) => (
 export default function DCFSection({ stock, thresholds, onUpdate }) {
   const s = stock;
   const hasDividend  = s.dividendPerShare != null && s.dividendPerShare > 0;
-  const hasFcfData   = s.fcfCurrent != null && s.fcfCurrent > 0 && s.sharesCurrent != null;
+  const hasFcfData   = (s.fcfNormalized != null || (s.fcfCurrent != null && s.fcfCurrent > 0)) && s.sharesCurrent != null;
   const hasPfcfHist  = s.pfcfHistorical != null;
 
   // Detect old EPS/PE-based assumptions and replace with FCF defaults
@@ -82,7 +82,8 @@ export default function DCFSection({ stock, thresholds, onUpdate }) {
   const update = (scenario, field, value) =>
     setAssum((p) => ({ ...p, [scenario]: { ...p[scenario], [field]: value } }));
 
-  const fcfPerShare = hasFcfData ? s.fcfCurrent / s.sharesCurrent : null;
+  const fcfBase     = s.fcfNormalized ?? s.fcfCurrent;
+  const fcfPerShare = hasFcfData && fcfBase ? fcfBase / s.sharesCurrent : null;
   const fcfYield    = fcfPerShare != null && s.price ? fcfPerShare / s.price : null;
 
   return (
@@ -92,6 +93,14 @@ export default function DCFSection({ stock, thresholds, onUpdate }) {
         <div className="dcf-warning">
           FCF ou nombre d'actions manquant — le modèle DCF ne peut pas calculer de résultat.
           Essaie d'actualiser les données via le bouton ↻.
+        </div>
+      )}
+
+      {s.fcfVolatile && hasFcfData && (
+        <div className="dcf-warning" style={{ borderColor: "var(--orange)", color: "var(--orange)" }}>
+          FCF irrégulier — des années négatives ont été détectées (ex : cycle CAPEX intensif). Le modèle utilise
+          un <strong>FCF normalisé</strong> (moyenne des années positives récentes) au lieu du seul FCF courant.
+          Ajuste manuellement le taux de croissance si nécessaire.
         </div>
       )}
 
@@ -106,6 +115,7 @@ export default function DCFSection({ stock, thresholds, onUpdate }) {
         <div className="anchor-chips">
           {[
             { label: "FCF total (dernier)",   val: money(s.fcfCurrent) },
+            ...(s.fcfVolatile ? [{ label: "FCF normalisé (≤5a)", val: money(s.fcfNormalized), highlight: true }] : []),
             { label: "FCF / action",           val: fcfPerShare != null ? `$${num(fcfPerShare)}` : "N/A" },
             { label: "FCF Yield",              val: fcfYield != null ? pct(fcfYield) : "N/A", highlight: fcfYield != null && fcfYield > 0.04 },
             { label: `FCF CAGR (${s.fcfGrowthYears ?? "?"}a)`,    val: s.fcfGrowth != null ? pct(s.fcfGrowth) : "N/A", highlight: s.fcfGrowth != null && s.fcfGrowth > 0.08 },

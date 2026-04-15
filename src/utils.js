@@ -70,6 +70,13 @@ export const processData = (raw) => {
   const fcfCurrent = latestCF.freeCashFlow;
   const fcfGrowth = cagrSeries(cf, 'freeCashFlow');
   const fcfValidCf = cf.filter(r => r.freeCashFlow != null && r.freeCashFlow > 0);
+  // Normalized FCF: average of up to 5 recent positive years — stable base for DCF
+  // when CapEx cycles cause temporary dips (e.g. Amazon 2022)
+  const fcfPositiveRecent = cf.slice(0, 5).filter(r => r.freeCashFlow != null && r.freeCashFlow > 0);
+  const fcfNormalized = fcfPositiveRecent.length > 0
+    ? fcfPositiveRecent.reduce((s, r) => s + r.freeCashFlow, 0) / fcfPositiveRecent.length
+    : null;
+  const fcfVolatile = cf.slice(0, 5).some(r => r.freeCashFlow != null && r.freeCashFlow < 0);
   const fcfGrowthYears = fcfValidCf.length >= 2 ? fcfValidCf.length - 1 : null;
   const ebitda = latestInc.ebitda;
   const totalDebt = latestBal.totalDebt;
@@ -146,6 +153,7 @@ export const processData = (raw) => {
     description: p?.description, price: currentPrice, marketCap: q?.marketCap,
     revenueCurrent, revenueGrowth, netMargin, epsCurrent, epsGrowth,
     equity, netDebt, netDebtDecreasing, fcfCurrent, fcfGrowth, fcfGrowthYears, fcfPerShare,
+    fcfNormalized, fcfVolatile,
     impliedShares,
     debtToEbitda, roic, roe, sharesCurrent, sharesDecreasing,
     payoutRatio, divToFcf, capex, capexGrowing,
@@ -199,11 +207,14 @@ export const computeMetricsForPeriod = (stock, periodYears) => {
 // FCF-based DCF: grows FCF/share at fcfGrowth, applies P/FCF exit multiple,
 // then adds cumulated dividends. Returns implied annual return + fair value.
 export const calculateDCF = (data, assumptions, years = 3, targetReturn = 0.10) => {
-  const { price, fcfCurrent, sharesCurrent, impliedShares, dividendPerShare } = data;
+  const { price, fcfCurrent, fcfNormalized, sharesCurrent, impliedShares, dividendPerShare } = data;
   const { fcfGrowth, pfcfExit, divGrowthRate } = assumptions;
   const effectiveShares = impliedShares ?? sharesCurrent;
-  if (!fcfCurrent || !effectiveShares || !price || !pfcfExit || fcfGrowth == null) return null;
-  const fcfPerShare = fcfCurrent / effectiveShares;
+  // Use normalized FCF (avg of last 5 positive years) as base — more stable than a single year
+  // that may be depressed by a CapEx cycle. falls back to fcfCurrent if no normalized available.
+  const fcfBase = fcfNormalized ?? fcfCurrent;
+  if (!fcfBase || !effectiveShares || !price || !pfcfExit || fcfGrowth == null) return null;
+  const fcfPerShare = fcfBase / effectiveShares;
   if (fcfPerShare <= 0) return null; // negative FCF — model invalid
 
   const fcfFuture   = fcfPerShare * Math.pow(1 + fcfGrowth, years);
