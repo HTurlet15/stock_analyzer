@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   ResponsiveContainer, ComposedChart, Bar,
   XAxis, YAxis, Tooltip, Legend, ReferenceLine,
@@ -216,8 +216,8 @@ export default function DCFSection({ stock: s, thresholds, onUpdate }) {
   // eslint-disable-next-line
   }, [metricKey, years]);
 
-  /* ── DCF result ───────────────────────────────────────────────────────── */
-  const result = runDCF({
+  /* ── DCF result (memoized to avoid infinite update loops) ────────────── */
+  const result = useMemo(() => runDCF({
     baseValue,
     baseShares:      effectiveShares,
     growthRate,
@@ -229,7 +229,7 @@ export default function DCFSection({ stock: s, thresholds, onUpdate }) {
     divGrowthRate:   divGrowth,
     shareChangePct:  shareChange,
     currentPrice:    s.price,
-  });
+  }), [baseValue, effectiveShares, growthRate, growthDecay, multiple, years, targetReturn, s.dividendPerShare, divGrowth, shareChange, s.price]);
 
   /* ── Persist results for header badge ────────────────────────────────── */
   useEffect(() => {
@@ -284,9 +284,9 @@ export default function DCFSection({ stock: s, thresholds, onUpdate }) {
     if (!result) return "Données insuffisantes pour calculer le DCF.";
     const pct2 = (v) => `${(v * 100).toFixed(1)}%`;
     if (result.overvaluedPct != null) {
-      return `D'après tes hypothèses, ${s.symbol} est surévalué de ${result.overvaluedPct.toFixed(0)}% et produirait un TCAC de ${pct2(result.returnWithDivs)} depuis le cours actuel. Tu devrais acheter à $${num(result.fairValue)} pour atteindre ton rendement cible de ${pct2(targetReturn)}.`;
+      return `D'après tes hypothèses, ${s.symbol} est surévalué de ${result.overvaluedPct.toFixed(0)}% et produirait un CAGR de ${pct2(result.returnWithDivs)} depuis le cours actuel. Tu devrais acheter à $${num(result.fairValue)} pour atteindre ton rendement cible de ${pct2(targetReturn)}.`;
     }
-    return `D'après tes hypothèses, ${s.symbol} est sous-évalué de ${(result.undervaluedPct ?? 0).toFixed(0)}% et produirait un TCAC de ${pct2(result.returnWithDivs)} depuis le cours actuel.`;
+    return `D'après tes hypothèses, ${s.symbol} est sous-évalué de ${(result.undervaluedPct ?? 0).toFixed(0)}% et produirait un CAGR de ${pct2(result.returnWithDivs)} depuis le cours actuel.`;
   };
 
   const hasDividend = s.dividendPerShare != null && s.dividendPerShare > 0;
@@ -294,7 +294,7 @@ export default function DCFSection({ stock: s, thresholds, onUpdate }) {
   return (
     <div className="dcf2-section">
 
-      {/* ── Top: inputs + results ──────────────────────────────────────── */}
+      {/* ── Main: inputs (left) + results+chart (right) ────────────────── */}
       <div className="dcf2-top">
 
         {/* Left: inputs */}
@@ -327,14 +327,20 @@ export default function DCFSection({ stock: s, thresholds, onUpdate }) {
           {/* Horizon */}
           <div className="dcf2-input-row">
             <label className="dcf2-label">Horizon de projection</label>
-            <div className="dcf2-horizon-btns">
-              {[3, 5, 7, 10].map(y => (
-                <button
-                  key={y}
-                  className={`dcf2-hz-btn${years === y ? " active" : ""}`}
-                  onClick={() => setYears(y)}
-                >{y} ans</button>
-              ))}
+            <div className="dcf2-input-wrap">
+              <input
+                className="dcf2-input"
+                type="number"
+                min="1"
+                max="30"
+                step="1"
+                value={years}
+                onChange={(e) => {
+                  const v = Math.max(1, Math.min(30, parseInt(e.target.value) || 1));
+                  setYears(v);
+                }}
+              />
+              <span className="dcf2-unit">ans</span>
             </div>
             <p className="dcf2-hint">Auto-rempli sur {years} ans de données</p>
           </div>
@@ -344,7 +350,7 @@ export default function DCFSection({ stock: s, thresholds, onUpdate }) {
             value={growthRate}
             onChange={setGrowthRate}
             isPercent
-            hint={histGrowth != null ? `TCAC ${metric.label} sur les ${years} dernières années : ${(histGrowth * 100).toFixed(2)}%` : null}
+            hint={histGrowth != null ? `CAGR ${metric.label} sur les ${years} dernières années : ${(histGrowth * 100).toFixed(2)}%` : null}
           />
 
           <NumInput
@@ -376,7 +382,7 @@ export default function DCFSection({ stock: s, thresholds, onUpdate }) {
               value={divGrowth}
               onChange={setDivGrowth}
               isPercent
-              hint={s.divGrowth != null ? `TCAC dividende historique : ${(s.divGrowth * 100).toFixed(2)}%` : null}
+              hint={s.divGrowth != null ? `CAGR dividende historique : ${(s.divGrowth * 100).toFixed(2)}%` : null}
             />
           )}
 
@@ -385,7 +391,7 @@ export default function DCFSection({ stock: s, thresholds, onUpdate }) {
             value={shareChange}
             onChange={setShareChange}
             isPercent
-            hint={histShareCh != null ? `TCAC actions sur les ${years} dernières années : ${(histShareCh * 100).toFixed(2)}%` : null}
+            hint={histShareCh != null ? `CAGR actions sur les ${years} dernières années : ${(histShareCh * 100).toFixed(2)}%` : null}
           />
 
           <NumInput
@@ -398,7 +404,7 @@ export default function DCFSection({ stock: s, thresholds, onUpdate }) {
           />
         </div>
 
-        {/* Right: results */}
+        {/* Right: results + chart stacked */}
         <div className="dcf2-results">
           <div className="dcf2-analysis-box">
             <p className="dcf2-analysis-title">Analyse DCF</p>
@@ -438,38 +444,38 @@ export default function DCFSection({ stock: s, thresholds, onUpdate }) {
               </div>
             </div>
             <div className="dcf2-kpi">
-              <span className="dcf2-kpi-label">TCAC estimé</span>
+              <span className="dcf2-kpi-label">CAGR estimé</span>
               <span className={`dcf2-kpi-val ${cagrColor}`}>
                 {result ? pct(result.returnWithDivs) : "—"}
               </span>
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* ── Bottom: bar chart ──────────────────────────────────────────── */}
-      <div className="dcf2-chart-section">
-        <p className="dcf2-chart-title">
-          {metric.label} — Historique ({histChron[0]?.year}–{currentYear}) &amp; Projection ({currentYear}–{currentYear + years})
-        </p>
-        <ResponsiveContainer width="100%" height={240}>
-          <ComposedChart data={chartData} margin={{ top: 4, right: 12, bottom: 0, left: 0 }}>
-            <XAxis dataKey="year" tick={{ fontSize: 11, fill: "var(--text-dim)" }} tickLine={false} axisLine={false} />
-            <YAxis
-              tickFormatter={fmtM}
-              tick={{ fontSize: 11, fill: "var(--text-dim)" }}
-              tickLine={false}
-              axisLine={false}
-              width={55}
-            />
-            <Tooltip content={<ChartTooltip />} />
-            <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
-            <ReferenceLine x={String(currentYear)} stroke="var(--border-bright)" strokeDasharray="4 3" />
-            <Bar dataKey="historical" name={`Historique : ${metric.label}`} fill="var(--accent)" opacity={0.75} radius={[2,2,0,0]} />
-            <Bar dataKey="projected"  name="Projection (sans décroissance)"  fill="var(--blue)"   opacity={0.55} radius={[2,2,0,0]} />
-            <Bar dataKey="withDecay"  name="Projection (avec décroissance)"  fill="var(--green)"  opacity={0.70} radius={[2,2,0,0]} />
-          </ComposedChart>
-        </ResponsiveContainer>
+          {/* Chart — under the KPIs, inside the right column */}
+          <div className="dcf2-chart-section">
+            <p className="dcf2-chart-title">
+              {metric.label} — Historique ({histChron[0]?.year}–{currentYear}) &amp; Projection ({currentYear}–{currentYear + years})
+            </p>
+            <ResponsiveContainer width="100%" height={220}>
+              <ComposedChart data={chartData} margin={{ top: 4, right: 12, bottom: 0, left: 0 }}>
+                <XAxis dataKey="year" tick={{ fontSize: 11, fill: "var(--text-dim)" }} tickLine={false} axisLine={false} />
+                <YAxis
+                  tickFormatter={fmtM}
+                  tick={{ fontSize: 11, fill: "var(--text-dim)" }}
+                  tickLine={false}
+                  axisLine={false}
+                  width={55}
+                />
+                <Tooltip content={<ChartTooltip />} />
+                <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
+                <ReferenceLine x={String(currentYear)} stroke="var(--border-bright)" strokeDasharray="4 3" />
+                <Bar dataKey="historical" name={`Historique : ${metric.label}`} fill="var(--accent)" opacity={0.75} radius={[2,2,0,0]} />
+                <Bar dataKey="projected"  name="Projection (sans décroissance)"  fill="var(--blue)"   opacity={0.55} radius={[2,2,0,0]} />
+                <Bar dataKey="withDecay"  name="Projection (avec décroissance)"  fill="var(--green)"  opacity={0.70} radius={[2,2,0,0]} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
       </div>
 
     </div>

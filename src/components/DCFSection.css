@@ -34,15 +34,6 @@
 .dcf2-drop-item:hover  { background: var(--bg-elevated); color: var(--text); }
 .dcf2-drop-item.active { color: var(--accent); font-weight: 600; }
 
-/* Horizon buttons */
-.dcf2-horizon-btns { display: flex; gap: 6px; }
-.dcf2-hz-btn {
-  padding: 6px 13px; border-radius: 6px; border: 1px solid var(--border);
-  background: var(--bg-card); color: var(--text-muted); font-family: 'Inter', sans-serif;
-  font-size: 12px; cursor: pointer; transition: all 0.15s;
-}
-.dcf2-hz-btn:hover  { border-color: var(--border-bright); color: var(--text); }
-.dcf2-hz-btn.active { background: var(--accent-dim); border-color: rgba(79,70,229,.3); color: var(--accent); font-weight: 600; }
 
 /* Input row */
 .dcf2-input-row  { display: flex; flex-direction: column; gap: 5px; padding: 10px 0; border-bottom: 1px solid var(--border); }
