@@ -4,9 +4,8 @@ import { scoreColor, computeScore } from "../thresholds";
 import "./SyntheseSection.css";
 
 const VERDICT_CONFIG = [
-  { min: 75, label: "Excellent",        cls: "green",  msg: "Tous les critères clés sont au vert. Dossier solide." },
-  { min: 55, label: "Intéressant",      cls: "green",  msg: "Bonne base fondamentale. Quelques points à surveiller." },
-  { min: 35, label: "Mitigé",           cls: "orange", msg: "Des signaux positifs mais aussi des points faibles notables." },
+  { min: 70, label: "Excellent",        cls: "green",  msg: "Tous les critères clés sont au vert. Dossier solide." },
+  { min: 40, label: "Mitigé",           cls: "orange", msg: "Des signaux positifs mais aussi des points faibles notables." },
   { min: 0,  label: "Dossier fragile",  cls: "red",    msg: "Plusieurs critères fondamentaux ne sont pas satisfaits." },
 ];
 
