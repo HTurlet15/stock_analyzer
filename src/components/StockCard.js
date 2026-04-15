@@ -70,35 +70,26 @@ const FinancialTable = ({ raw, period }) => {
   const byYear = (arr, year) => arr.find(r => r.date?.startsWith(year)) || {};
 
   // ── Trend helpers ────────────────────────────────────────────────────────
-  const trendCAGR = (values, good = 0.10, ok = 0.05) => {
+  // trendCAGR: shows %/an, inverse=true means decrease is good (debt, shares)
+  const trendCAGR = (values, good = 0.10, ok = 0.05, inverse = false) => {
     const v = values.filter(x => x != null && isFinite(x));
     if (v.length < 2) return { label: "—", cls: "dim" };
     const first = v[0], last = v[v.length - 1];
-    // Both positive → standard CAGR
     if (first > 0 && last > 0) {
       const rate = Math.pow(last / first, 1 / (v.length - 1)) - 1;
       if (!isFinite(rate) || isNaN(rate)) return { label: "—", cls: "dim" };
-      const cls = rate >= good ? "green" : rate >= ok ? "orange" : "red";
+      const cls = !inverse
+        ? (rate >= good ? "green" : rate >= ok ? "orange" : "red")
+        : (rate <= -good ? "green" : rate <= -ok ? "orange" : "red");
       return { label: `${rate >= 0 ? "↑" : "↓"} ${Math.abs(rate * 100).toFixed(1)}%/an`, cls };
     }
-    // Negative start, positive end → recovery
-    if (first <= 0 && last > 0) return { label: "↑ Redressement", cls: "green" };
-    // Positive start, negative end → deterioration
-    if (first > 0 && last <= 0) return { label: "↓ Détérioration", cls: "red" };
-    // Both negative → less negative = improving
+    if (first <= 0 && last > 0) return { label: "↑ Redressement", cls: inverse ? "red" : "green" };
+    if (first > 0 && last <= 0) return { label: "↓ Détérioration", cls: inverse ? "green" : "red" };
     const improving = last > first;
     return { label: improving ? "↑ S'améliore" : "↓ Se dégrade", cls: improving ? "orange" : "red" };
   };
 
-  const trendDir = (values, inverse = false) => {
-    const v = values.filter(x => x != null && isFinite(x));
-    if (v.length < 2) return { label: "—", cls: "dim" };
-    const dec = v[v.length - 1] < v[0];
-    const good = inverse ? dec : !dec;
-    return { label: dec ? "↓ Décroissant" : "↑ Croissant", cls: good ? "green" : "red" };
-  };
-
-  // trendLevel: color from latest value against thresholds, direction from movement
+  // trendLevel: color from absolute level thresholds, rate of change as label
   const trendLevel = (values, good, ok, inverse = false) => {
     const v = values.filter(x => x != null && isFinite(x));
     if (!v.length) return { label: "—", cls: "dim" };
@@ -107,8 +98,13 @@ const FinancialTable = ({ raw, period }) => {
       ? (latest >= good ? "green" : latest >= ok ? "orange" : "red")
       : (latest <= good ? "green" : latest <= ok ? "orange" : "red");
     if (v.length < 2) return { label: "—", cls };
-    const dec = latest < v[0];
-    return { label: dec ? "↓ Décroissant" : "↑ Croissant", cls };
+    const first = v[0];
+    if (first > 0 && latest > 0) {
+      const rate = Math.pow(latest / first, 1 / (v.length - 1)) - 1;
+      if (isFinite(rate) && !isNaN(rate))
+        return { label: `${rate >= 0 ? "↑" : "↓"} ${Math.abs(rate * 100).toFixed(1)}%/an`, cls };
+    }
+    return { label: latest < first ? "↓" : "↑", cls };
   };
 
   // ── Formatters ────────────────────────────────────────────────────────────
@@ -150,19 +146,19 @@ const FinancialTable = ({ raw, period }) => {
     v => trendCAGR(v), curInc.eps);
   row("Actions en circulation",
     y => byYear(inc, y).weightedAverageShsOut, fSh,
-    v => trendDir(v, true), curInc.weightedAverageShsOut);
+    v => trendCAGR(v, 0.02, 0.005, true), curInc.weightedAverageShsOut);
 
   // Bilan
   sec("Bilan");
   row("Fonds propres",
     y => byYear(bal, y).totalStockholdersEquity, fM,
-    v => trendDir(v), curBal.totalStockholdersEquity);
+    v => trendCAGR(v, 0.05, 0.02), curBal.totalStockholdersEquity);
   row("Dette totale",
     y => byYear(bal, y).totalDebt, fM,
-    v => trendDir(v, true), curBal.totalDebt);
+    v => trendCAGR(v, 0.05, 0.02, true), curBal.totalDebt);
   row("Dette nette",
     y => byYear(bal, y).netDebt, fM,
-    v => trendDir(v, true), curBal.netDebt);
+    v => trendCAGR(v, 0.05, 0.02, true), curBal.netDebt);
   row("Dette nette / EBITDA",
     y => { const b = byYear(bal, y); const i = byYear(inc, y); return b.netDebt != null && i.ebitda && i.ebitda > 0 ? b.netDebt / i.ebitda : null; }, fR,
     v => trendLevel(v, 2, 3, true),
@@ -175,11 +171,11 @@ const FinancialTable = ({ raw, period }) => {
     v => trendCAGR(v), curCF.freeCashFlow);
   row("Capex",
     y => { const r = byYear(cf, y); return r.capitalExpenditure != null ? Math.abs(r.capitalExpenditure) : null; }, fM,
-    v => trendDir(v),
+    v => trendCAGR(v, 0.05, 0.02),
     curCF.capitalExpenditure != null ? Math.abs(curCF.capitalExpenditure) : null);
   row("Dividendes versés",
     y => { const r = byYear(cf, y); return r.dividendsPaid != null ? Math.abs(r.dividendsPaid) : null; }, fM,
-    v => trendDir(v),
+    v => trendCAGR(v, 0.03, 0.01),
     curCF.dividendsPaid != null ? Math.abs(curCF.dividendsPaid) : null);
 
   // Rentabilité
@@ -192,7 +188,7 @@ const FinancialTable = ({ raw, period }) => {
     v => trendLevel(v, 0.15, 0.10), curMet.roe);
   row("PER historique",
     y => byYear(met, y).peRatio, fR,
-    v => trendDir(v, true), curMet.peRatio);
+    v => trendCAGR(v, 0.05, 0.02, true), curMet.peRatio);
   row("Payout Ratio",
     y => byYear(rat, y).payoutRatio, fP,
     v => trendLevel(v, 0.40, 0.60, true), curRat.payoutRatio);

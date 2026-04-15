@@ -54,7 +54,10 @@ export default function SyntheseSection({ stock, thresholds: t }) {
 
   // Recompute all period-sensitive metrics for the selected window
   const s = computeMetricsForPeriod(stock, period);
-  const availableYears = stock.inc?.length ? stock.inc.length - 1 : 0;
+  // raw.income.length = nombre de colonnes visibles dans Finances (points de données)
+  // max CAGR period = raw.income.length - 1 (il faut N+1 points pour N années de CAGR)
+  const dataPoints    = stock.raw?.income?.length ?? stock.inc?.length ?? 0;
+  const availableYears = Math.max(0, dataPoints - 1); // max CAGR calculable
   const effectiveYears = s.effectivePeriodYears ?? availableYears;
   const periodLabel = `${effectiveYears} ans`;
 
@@ -95,7 +98,7 @@ export default function SyntheseSection({ stock, thresholds: t }) {
             </button>
           );
         })}
-        <span className="syn-period-available">{availableYears} ans disponibles</span>
+        <span className="syn-period-available">{dataPoints} ans de données</span>
       </div>
 
       {/* ── Verdict banner ─────────────────────────────────────────────────── */}

@@ -236,7 +236,7 @@ export default function DCFSection({ stock: s, thresholds, onUpdate }) {
     if (!result) return;
     onUpdate(s.symbol, {
       assumptions: {
-        base: { fairValue: result.fairValue, marginOfSafety: result.marginOfSafety },
+        base: { fairValue: result.fairValue, marginOfSafety: result.marginOfSafety, returnWithDivs: result.returnWithDivs },
       },
       dcfAssumptions: { metric: metricKey, growthRate, growthDecay, multiple, years, targetReturn, divGrowth, shareChange, baseValue },
     });
