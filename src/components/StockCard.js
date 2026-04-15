@@ -324,6 +324,16 @@ export default function StockCard({ stock, thresholds, onRemove, onUpdate, onRef
             <span className="price-val">{s.currency === "EUR" ? "€" : "$"}{num(s.price)}</span>
             <span className="price-label">prix actuel</span>
           </div>
+          {s.assumptions?.base?.fairValue && (() => {
+            const mos = s.assumptions.base.marginOfSafety;
+            const fairColor = mos > 0.15 ? "green" : mos > 0 ? "orange" : "red";
+            return (
+              <div className="sc-price">
+                <span className={`fair-val ${fairColor}`}>{s.currency === "EUR" ? "€" : "$"}{num(s.assumptions.base.fairValue)}</span>
+                <span className="price-label">fair value</span>
+              </div>
+            );
+          })()}
           <div className={`health-badge ${healthColor}`}>
             <span className="health-score">{healthScore}</span>
             <span className="health-label">/100</span>

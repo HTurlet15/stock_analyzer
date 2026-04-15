@@ -14,6 +14,10 @@
 .sc-price { display: flex; flex-direction: column; align-items: flex-end; }
 .price-val { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); }
 .price-label { font-size: 10px; color: var(--text-muted); }
+.fair-val { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.fair-val.green  { color: var(--green); }
+.fair-val.orange { color: var(--orange); }
+.fair-val.red    { color: var(--red); }
 
 .health-badge { display: flex; align-items: baseline; gap: 1px; padding: 5px 10px; border-radius: 7px; }
 .health-badge.green  { background: var(--green-dim); }
