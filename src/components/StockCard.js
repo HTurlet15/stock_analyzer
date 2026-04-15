@@ -286,7 +286,7 @@ export default function StockCard({ stock, thresholds, onRemove, onUpdate, onRef
   const raw = s.raw || {};
 
   const healthScore = thresholds ? computeScore(s, thresholds) : 0;
-  const healthColor = healthScore >= 70 ? "green" : healthScore >= 45 ? "orange" : "red";
+  const healthColor = healthScore >= 55 ? "green" : healthScore >= 35 ? "orange" : "red";
 
   // Key check details
   const latestInc = raw.income?.[0]  || {};
