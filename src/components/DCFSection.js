@@ -344,6 +344,15 @@ export default function DCFSection({ stock: s, thresholds, onUpdate }) {
                 </ul>
               )}
             </div>
+            {(() => {
+              const cv = currentVal;
+              const ratio = cv != null && cv > 0 && effectiveShares > 0 && s.price
+                ? s.price / (cv / effectiveShares)
+                : null;
+              return ratio != null
+                ? <p className="dcf2-hint">Cours actuel / {metric.label} par action : {ratio.toFixed(1)}x</p>
+                : null;
+            })()}
           </div>
 
           {/* Horizon */}
