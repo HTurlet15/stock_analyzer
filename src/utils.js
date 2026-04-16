@@ -236,6 +236,7 @@ export const computeMetricsForPeriod = (stock, periodYears) => {
 // FCF-based DCF: grows FCF/share at fcfGrowth, applies P/FCF exit multiple,
 // then adds cumulated dividends. Returns implied annual return + fair value.
 export const calculateDCF = (data, assumptions, years = 3, targetReturn = 0.10) => {
+  if (!assumptions) return null;
   const { price, fcfCurrent, fcfNormalized, sharesCurrent, impliedShares, dividendPerShare } = data;
   const { fcfGrowth, pfcfExit, divGrowthRate } = assumptions;
   const effectiveShares = impliedShares ?? sharesCurrent;

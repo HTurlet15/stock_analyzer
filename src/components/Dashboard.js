@@ -181,17 +181,25 @@ export default function Dashboard() {
       const tr = thresholds.fairValueTargetReturn ?? 0.10;
       setWatchlist((prev) => prev.map((s) => {
         if (s.symbol !== symbol) return s;
-        // Migrate old EPS-based assumptions to new FCF-based ones
-        const storedAssum = isOldFormat(s.dcfAssumptions) ? null : s.dcfAssumptions;
+        // Preserve DCFSection's base result; only rebuild bear/bull from Dashboard defaults
+        const storedAssum = (isOldFormat(s.dcfAssumptions) || !s.dcfAssumptions?.bear)
+          ? null : s.dcfAssumptions;
         const dcfAssumptions = storedAssum || makeDcfDefaults(processed, 3);
-        const assumptions = {
-          bear: calculateDCF(processed, dcfAssumptions.bear, dcfAssumptions.years ?? 3, tr),
-          base: calculateDCF(processed, dcfAssumptions.base, dcfAssumptions.years ?? 3, tr),
-          bull: calculateDCF(processed, dcfAssumptions.bull, dcfAssumptions.years ?? 3, tr),
+        const freshBear = calculateDCF(processed, dcfAssumptions.bear, dcfAssumptions.years ?? 3, tr);
+        const freshBull = calculateDCF(processed, dcfAssumptions.bull, dcfAssumptions.years ?? 3, tr);
+        // Keep existing base (set by DCFSection) if present, else compute a default
+        const existingBase = s.assumptions?.base;
+        const freshBase = existingBase
+          ? existingBase
+          : calculateDCF(processed, dcfAssumptions.base, dcfAssumptions.years ?? 3, tr);
+        return {
+          ...s, ...processed, raw,
+          assumptions: { bear: freshBear, base: freshBase, bull: freshBull },
+          dcfAssumptions, refreshing: false, lastUpdated: new Date().toISOString(),
         };
-        return { ...s, ...processed, raw, assumptions, dcfAssumptions, refreshing: false, lastUpdated: new Date().toISOString() };
       }));
-    } catch {
+    } finally {
+      // Ensure refreshing flag is always cleared even if fetch or processing throws
       setWatchlist((prev) => prev.map((s) => s.symbol === symbol ? { ...s, refreshing: false } : s));
     }
   };
@@ -200,14 +208,24 @@ export default function Dashboard() {
     if (refreshingAll || watchlist.length === 0) return;
     setRefreshingAll(true);
     const symbols = watchlist.map(s => s.symbol);
-    for (const symbol of symbols) {
-      await refreshStock(symbol);
+    try {
+      for (const symbol of symbols) {
+        await refreshStock(symbol);
+      }
+    } finally {
+      setRefreshingAll(false);
     }
-    setRefreshingAll(false);
   };
 
   const updateStock = (symbol, updates) =>
-    setWatchlist((prev) => prev.map((s) => (s.symbol === symbol ? { ...s, ...updates } : s)));
+    setWatchlist((prev) => prev.map((s) => {
+      if (s.symbol !== symbol) return s;
+      // Merge assumptions.base only — preserve bear/bull set by Dashboard's calculateDCF
+      const mergedAssumptions = updates.assumptions
+        ? { ...s.assumptions, base: { ...s.assumptions?.base, ...updates.assumptions.base } }
+        : s.assumptions;
+      return { ...s, ...updates, assumptions: mergedAssumptions };
+    }));
 
   const handleKey = (e) => { if (e.key === "Enter") addStock(); };
 
