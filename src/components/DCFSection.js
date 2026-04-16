@@ -194,9 +194,9 @@ export default function DCFSection({ stock: s, thresholds, onUpdate }) {
   /* ── Metric selection ─────────────────────────────────────────────────── */
   const [metricKey, setMetricKey] = useState(initMetricKey);
   const [dropOpen, setDropOpen]   = useState(false);
-  const dropRef    = useRef(null);
-  const isMounted  = useRef(false);  // skip re-seed on first render
-  const metric     = METRICS.find(m => m.key === metricKey);
+  const dropRef        = useRef(null);
+  const prevMetricKey  = useRef(metricKey);  // tracks last metric to detect real changes
+  const metric         = METRICS.find(m => m.key === metricKey);
 
   useEffect(() => {
     const close = (e) => { if (dropRef.current && !dropRef.current.contains(e.target)) setDropOpen(false); };
@@ -224,9 +224,10 @@ export default function DCFSection({ stock: s, thresholds, onUpdate }) {
   const [shareChange,   setShareChange]   = useState(saved?.shareChange ?? initHistShareCh ?? 0);
   const [baseValue,     setBaseValue]     = useState(saved?.baseValue   ?? initCurrentVal ?? 0);
 
-  // Re-seed only when metric or years changes AFTER mount (skip initial render)
+  // Re-seed ONLY when the metric actually changes (not on mount/remount, not on years change)
   useEffect(() => {
-    if (!isMounted.current) { isMounted.current = true; return; }
+    if (prevMetricKey.current === metricKey) return;
+    prevMetricKey.current = metricKey;
     const g  = histCAGR(metric.getHistory(s), years);
     const mu = avgMultiple(metric.getMultHist(s), years);
     const sc = shareCAGR(s.inc, years);
@@ -236,7 +237,7 @@ export default function DCFSection({ stock: s, thresholds, onUpdate }) {
     if (sc != null) setShareChange(sc);
     if (cv != null) setBaseValue(cv);
   // eslint-disable-next-line
-  }, [metricKey, years]);
+  }, [metricKey]);
 
   /* ── DCF result (memoized to avoid infinite update loops) ────────────── */
   const result = useMemo(() => runDCF({
