@@ -4,6 +4,7 @@ import { pct, num, money, colorFromThresholds, computeMetricsForPeriod } from ".
 import { computeScore } from "../thresholds";
 import MoatSection from "./MoatSection";
 import ManagementSection from "./ManagementSection";
+import BusinessAnalysisSection from "./BusinessAnalysisSection";
 import DCFSection from "./DCFSection";
 import SyntheseSection from "./SyntheseSection";
 import ValuationSection from "./ValuationSection";
@@ -302,6 +303,7 @@ const TABS = [
   { id: "dcf",         label: "DCF" },
   { id: "moat",        label: "MOAT" },
   { id: "management",  label: "Management" },
+  { id: "analysis",    label: "Analyse" },
   { id: "positions",   label: "Positions" },
 ];
 
@@ -473,10 +475,11 @@ export default function StockCard({ stock, thresholds, onRemove, onUpdate, onRef
             <ValuationSection stock={s} thresholds={thresholds} />
           )}
 
-          {activeTab === "dcf"        && <DCFSection        stock={stock} thresholds={thresholds} onUpdate={onUpdate} />}
-          {activeTab === "moat"       && <MoatSection       stock={stock} onUpdate={onUpdate} />}
-          {activeTab === "management" && <ManagementSection  stock={stock} onUpdate={onUpdate} />}
-          {activeTab === "positions"  && <PositionsSection   stock={stock} onUpdate={onUpdate} />}
+          {activeTab === "dcf"        && <DCFSection             stock={stock} thresholds={thresholds} onUpdate={onUpdate} />}
+          {activeTab === "moat"       && <MoatSection            stock={stock} onUpdate={onUpdate} />}
+          {activeTab === "management" && <ManagementSection       stock={stock} onUpdate={onUpdate} />}
+          {activeTab === "analysis"   && <BusinessAnalysisSection stock={stock} onUpdate={onUpdate} />}
+          {activeTab === "positions"  && <PositionsSection        stock={stock} onUpdate={onUpdate} />}
         </div>
       )}
     </div>

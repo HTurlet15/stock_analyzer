@@ -628,7 +628,7 @@ def debug_rows(symbol):
 def analyze_stock(symbol, analysis_type):
     if not ANTHROPIC_KEY or not TAVILY_KEY:
         return jsonify({"error": "ANTHROPIC_API_KEY ou TAVILY_API_KEY manquant dans .env"}), 400
-    if analysis_type not in ("moat", "management"):
+    if analysis_type not in ("moat", "management", "business"):
         return jsonify({"error": "Type invalide"}), 400
 
     data        = request.get_json() or {}
@@ -640,7 +640,14 @@ def analyze_stock(symbol, analysis_type):
     # ── Tavily web search ─────────────────────────────────────────────────────
     tavily = _TavilyClient(api_key=TAVILY_KEY)
 
-    if analysis_type == "moat":
+    if analysis_type == "business":
+        queries = [
+            f"{company} business model revenue streams how does it make money segments 2024",
+            f"{company} products services key offerings market share customers 2024 2025",
+            f"{company} competitors competitive landscape market position risks threats",
+            f"{company} risks weaknesses red flags concerns investors 2024 2025",
+        ]
+    elif analysis_type == "moat":
         queries = [
             f"{company} market share dominance specific products revenue breakdown 2024",
             f"{company} pricing power customer retention switching costs concrete examples",
@@ -688,7 +695,45 @@ Données financières (moyennes 5-10 ans) :
 """
 
     # ── Build Claude prompt ───────────────────────────────────────────────────
-    if analysis_type == "moat":
+    if analysis_type == "business":
+        system = """Tu es un analyste financier senior spécialisé en analyse fondamentale d'entreprises pour des investisseurs particuliers.
+Ta méthode : chaque affirmation doit être étayée par des faits précis — noms de produits, chiffres, parts de marché, événements datés, concurrents nommés.
+Une analyse générique sans exemple concret est inacceptable.
+Tu réponds UNIQUEMENT en JSON valide, sans markdown, sans texte avant ou après."""
+
+        user_prompt = f"""Analyse en profondeur l'entreprise {company} ({sector} — {industry}) pour un investisseur qui envisage d'y investir.
+
+{fin_ctx}
+
+INFORMATIONS RÉCENTES TROUVÉES SUR LE WEB :
+{search_context[:5000]}
+
+RÈGLE ABSOLUE : chaque section doit contenir des faits précis — noms de produits/segments, chiffres de revenus, parts de marché, concurrents nommés, événements datés.
+
+Génère une analyse structurée en 7 sections :
+
+1. overview : Vue d'ensemble — ce que fait l'entreprise, sa taille, son marché, son histoire récente
+2. model : Modèle économique — comment elle génère ses revenus (segments, pricing, marges par activité si disponible)
+3. products : Produits & services clés — offres principales avec leur poids dans le CA, pipeline, avantages produit
+4. competition : Position concurrentielle — concurrents directs nommés, parts de marché, avantages et désavantages vs peers
+5. risks : Risques principaux — au moins 4 risques spécifiques (réglementaire, concurrentiel, macro, technologique, géopolitique...)
+6. weaknesses : Points faibles & signaux d'alerte — dépendances concentrées, clients clés, dette, valorisation, décisions passées critiquables
+7. verdict : Verdict investisseur — bull case (2-3 points forts) / bear case (2-3 points faibles) / points clés à surveiller avant d'investir
+
+Réponds avec ce JSON exact :
+{{
+  "sections": [
+    {{"id": "overview",     "title": "Vue d'ensemble",           "content": "4-6 phrases avec faits précis, chiffres, dates"}},
+    {{"id": "model",        "title": "Modèle économique",        "content": "4-6 phrases avec segments de revenus, marges, pricing"}},
+    {{"id": "products",     "title": "Produits & services clés", "content": "4-6 phrases avec noms de produits, parts de CA, pipeline"}},
+    {{"id": "competition",  "title": "Position concurrentielle", "content": "4-6 phrases avec concurrents nommés, parts de marché, différenciation"}},
+    {{"id": "risks",        "title": "Risques principaux",       "content": "4-6 phrases avec risques spécifiques nommés et quantifiés si possible"}},
+    {{"id": "weaknesses",   "title": "Points faibles & alertes", "content": "4-6 phrases avec signaux d'alerte concrets, dépendances, red flags"}},
+    {{"id": "verdict",      "title": "Verdict investisseur",     "content": "Bull case (2-3 points), Bear case (2-3 points), À surveiller (2-3 métriques)"}}
+  ]
+}}"""
+
+    elif analysis_type == "moat":
         system = """Tu es un analyste financier senior spécialisé en analyse fondamentale, style Morningstar Economic Moat Rating.
 Ta méthode : tu ne fais JAMAIS d'affirmations génériques. Chaque point d'analyse doit être étayé par :
 - Des noms de produits ou services spécifiques (ex: Azure, Office 365, Xbox Game Pass)
@@ -792,7 +837,7 @@ Réponds avec ce JSON exact (analysis = 3-5 phrases avec faits précis, noms, da
     client = _anthropic.Anthropic(api_key=ANTHROPIC_KEY)
     msg = client.messages.create(
         model="claude-sonnet-4-5",
-        max_tokens=3000,
+        max_tokens=4000 if analysis_type == "business" else 3000,
         system=system,
         messages=[{"role": "user", "content": user_prompt}],
     )
