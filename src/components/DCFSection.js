@@ -38,7 +38,13 @@ const METRICS = [
   },
   {
     key: "ocf", label: "Operating Cash Flow",
-    getCurrent:  (s) => (s.cf  || [])[0]?.operatingCashFlow,
+    getCurrent:  (s) => {
+      const r = (s.cf || [])[0] || {};
+      if (r.operatingCashFlow != null) return r.operatingCashFlow;
+      // fallback: OCF = FCF − capex (capex stored as negative in yfinance)
+      if (r.freeCashFlow != null && r.capitalExpenditure != null) return r.freeCashFlow - r.capitalExpenditure;
+      return null;
+    },
     getHistory:  (s) => (s.cf  || []).filter(r => r.operatingCashFlow != null).map(r => ({ year: r.date?.slice(0,4), value: r.operatingCashFlow })),
     getMultHist: (_s) => [],
     multLabel: "P/OCF",
@@ -347,8 +353,9 @@ export default function DCFSection({ stock: s, thresholds, onUpdate }) {
             </div>
             {(() => {
               const cv = currentVal;
-              const ratio = cv != null && cv > 0 && effectiveShares > 0 && s.price
-                ? s.price / (cv / effectiveShares)
+              const perShare = cv != null && effectiveShares > 0 ? cv / effectiveShares : null;
+              const ratio = perShare != null && perShare !== 0 && s.price
+                ? s.price / perShare
                 : null;
               return ratio != null
                 ? <p className="dcf2-hint">Cours actuel / {metric.label} par action : {ratio.toFixed(1)}x</p>
