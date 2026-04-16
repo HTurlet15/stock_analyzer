@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip } from "recharts";
-import { pct, num, money, colorFromThresholds } from "../utils";
+import { pct, num, money, colorFromThresholds, computeMetricsForPeriod } from "../utils";
 import { computeScore } from "../thresholds";
 import MoatSection from "./MoatSection";
 import ManagementSection from "./ManagementSection";
@@ -323,7 +323,7 @@ export default function StockCard({ stock, thresholds, onRemove, onUpdate, onRef
   const s = stock;
   const raw = s.raw || {};
 
-  const healthScore = thresholds ? computeScore(s, thresholds) : 0;
+  const healthScore = thresholds ? computeScore(computeMetricsForPeriod(s, 5), thresholds) : 0;
   const healthColor = healthScore >= 70 ? "green" : healthScore >= 40 ? "orange" : "red";
 
   // Key check details
