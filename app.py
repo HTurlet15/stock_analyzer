@@ -710,26 +710,26 @@ INFORMATIONS RÉCENTES TROUVÉES SUR LE WEB :
 
 RÈGLE ABSOLUE : chaque section doit contenir des faits précis — noms de produits/segments, chiffres de revenus, parts de marché, concurrents nommés, événements datés.
 
-Génère une analyse structurée en 7 sections :
+Génère une analyse structurée en 7 sections. RÈGLE DE FORMAT : utilise des bullet points (•) et des sauts de ligne (\\n) pour structurer le contenu. Chaque point doit être sur sa propre ligne précédée de "• ".
 
-1. overview : Vue d'ensemble — ce que fait l'entreprise, sa taille, son marché, son histoire récente
-2. model : Modèle économique — comment elle génère ses revenus (segments, pricing, marges par activité si disponible)
-3. products : Produits & services clés — offres principales avec leur poids dans le CA, pipeline, avantages produit
-4. competition : Position concurrentielle — concurrents directs nommés, parts de marché, avantages et désavantages vs peers
-5. risks : Risques principaux — au moins 4 risques spécifiques (réglementaire, concurrentiel, macro, technologique, géopolitique...)
-6. weaknesses : Points faibles & signaux d'alerte — dépendances concentrées, clients clés, dette, valorisation, décisions passées critiquables
-7. verdict : Verdict investisseur — bull case (2-3 points forts) / bear case (2-3 points faibles) / points clés à surveiller avant d'investir
+1. overview : Vue d'ensemble — 1 phrase d'intro, puis bullets : fondation/histoire, taille (CA, capitalisation), marchés principaux, position géographique
+2. model : Modèle économique — bullets par segment de revenus avec % du CA si connu, type de revenus (récurrents/transactionnels), marges par segment si dispo
+3. products : Produits & services clés — 1 bullet par produit/service majeur avec chiffres (CA segment, part de marché, croissance)
+4. competition : Position concurrentielle — 1 bullet par concurrent direct nommé avec comparaison chiffrée, puis 1-2 bullets sur les avantages/désavantages
+5. risks : Risques principaux — 1 bullet par risque avec titre en gras implicite (ex: "Risque réglementaire : ..."), minimum 4 risques distincts
+6. weaknesses : Points faibles & alertes — 1 bullet par signal d'alerte concret (dépendance, dette, valorisation, décision critiquable)
+7. verdict : Structure OBLIGATOIRE en 3 blocs séparés par \\n\\n : "BULL CASE :\\n• point1\\n• point2\\n• point3" puis "BEAR CASE :\\n• point1\\n• point2\\n• point3" puis "À SURVEILLER :\\n• métrique1\\n• métrique2"
 
-Réponds avec ce JSON exact :
+Réponds avec ce JSON exact (les \\n dans les strings JSON représentent de vrais sauts de ligne) :
 {{
   "sections": [
-    {{"id": "overview",     "title": "Vue d'ensemble",           "content": "4-6 phrases avec faits précis, chiffres, dates"}},
-    {{"id": "model",        "title": "Modèle économique",        "content": "4-6 phrases avec segments de revenus, marges, pricing"}},
-    {{"id": "products",     "title": "Produits & services clés", "content": "4-6 phrases avec noms de produits, parts de CA, pipeline"}},
-    {{"id": "competition",  "title": "Position concurrentielle", "content": "4-6 phrases avec concurrents nommés, parts de marché, différenciation"}},
-    {{"id": "risks",        "title": "Risques principaux",       "content": "4-6 phrases avec risques spécifiques nommés et quantifiés si possible"}},
-    {{"id": "weaknesses",   "title": "Points faibles & alertes", "content": "4-6 phrases avec signaux d'alerte concrets, dépendances, red flags"}},
-    {{"id": "verdict",      "title": "Verdict investisseur",     "content": "Bull case (2-3 points), Bear case (2-3 points), À surveiller (2-3 métriques)"}}
+    {{"id": "overview",     "title": "Vue d'ensemble",           "content": "phrase intro\\n• bullet1\\n• bullet2\\n• bullet3"}},
+    {{"id": "model",        "title": "Modèle économique",        "content": "• Segment1 (~X% du CA) : description\\n• Segment2..."}},
+    {{"id": "products",     "title": "Produits & services clés", "content": "• Produit1 : description avec chiffres\\n• Produit2..."}},
+    {{"id": "competition",  "title": "Position concurrentielle", "content": "• Concurrent1 : comparaison chiffrée\\n• Avantage clé : ..."}},
+    {{"id": "risks",        "title": "Risques principaux",       "content": "• Risque réglementaire : description\\n• Risque concurrentiel : ..."}},
+    {{"id": "weaknesses",   "title": "Points faibles & alertes", "content": "• Signal1 : description\\n• Signal2 : ..."}},
+    {{"id": "verdict",      "title": "Verdict investisseur",     "content": "BULL CASE :\\n• point1\\n• point2\\n\\nBEAR CASE :\\n• point1\\n• point2\\n\\nÀ SURVEILLER :\\n• métrique1\\n• métrique2"}}
   ]
 }}"""
 

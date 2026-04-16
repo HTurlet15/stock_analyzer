@@ -205,7 +205,7 @@ export default function ManagementSection({ stock, onUpdate }) {
                   ))}
                 </div>
               </div>
-              <textarea className="mgmt-notes" placeholder="Tes observations..." value={m.notes} onChange={(e) => updateMgmt(c.id, "notes", e.target.value)} rows={2} />
+              <textarea className="mgmt-notes" placeholder="Tes observations..." value={m.notes} onChange={(e) => updateMgmt(c.id, "notes", e.target.value)} ref={el => { if (el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; } }} onInput={e => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; }} />
             </div>
           );
         })}

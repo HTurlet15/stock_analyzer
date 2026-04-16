@@ -29,11 +29,15 @@
 
 .ba-card-body { padding: 0 16px 16px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 14px; }
 
-.ba-card-content { font-size: 13px; color: var(--text-muted); line-height: 1.75; padding-top: 14px; white-space: pre-line; }
+.ba-formatted { display: flex; flex-direction: column; gap: 10px; padding-top: 14px; }
+.ba-block { display: flex; flex-direction: column; gap: 4px; }
+.ba-block-header { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text); margin-top: 4px; }
+.ba-bullet { font-size: 13px; color: var(--text-muted); line-height: 1.7; padding-left: 4px; }
+.ba-prose { font-size: 13px; color: var(--text-muted); line-height: 1.7; }
 
 /* Notes */
 .ba-notes-wrap { display: flex; flex-direction: column; gap: 6px; }
 .ba-notes-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-dim); }
-.ba-notes { width: 100%; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; color: var(--text); font-family: 'Inter', sans-serif; font-size: 12px; resize: vertical; outline: none; transition: border-color 0.15s; line-height: 1.5; box-sizing: border-box; }
+.ba-notes { width: 100%; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; color: var(--text); font-family: 'Inter', sans-serif; font-size: 12px; resize: none; overflow: hidden; min-height: 38px; outline: none; transition: border-color 0.15s; line-height: 1.5; box-sizing: border-box; }
 .ba-notes:focus { border-color: var(--accent); }
 .ba-notes::placeholder { color: var(--text-dim); }

@@ -1,6 +1,27 @@
 import { useState } from "react";
 import "./BusinessAnalysisSection.css";
 
+// Renders content with bullet points and block headers (BULL CASE:, etc.)
+function FormattedContent({ text }) {
+  if (!text) return null;
+  return (
+    <div className="ba-formatted">
+      {text.split("\n\n").map((block, bi) => (
+        <div key={bi} className="ba-block">
+          {block.split("\n").map((line, li) => {
+            if (!line.trim()) return null;
+            const isHeader = /^[A-ZÀ-Ü\s]+\s*:$/.test(line.trim()) || /^(BULL CASE|BEAR CASE|À SURVEILLER)\s*:/i.test(line.trim());
+            const isBullet = line.trim().startsWith("•");
+            if (isHeader) return <p key={li} className="ba-block-header">{line.trim()}</p>;
+            if (isBullet) return <p key={li} className="ba-bullet">{line.trim()}</p>;
+            return <p key={li} className="ba-prose">{line.trim()}</p>;
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 const SECTION_ICONS = {
   overview:    "🏢",
   model:       "💰",
@@ -176,7 +197,7 @@ export default function BusinessAnalysisSection({ stock, onUpdate }) {
 
                 {isOpen && (
                   <div className="ba-card-body">
-                    <p className="ba-card-content">{section.content}</p>
+                    <FormattedContent text={section.content} />
                     <div className="ba-notes-wrap">
                       <label className="ba-notes-label">Tes notes personnelles</label>
                       <textarea
@@ -184,7 +205,8 @@ export default function BusinessAnalysisSection({ stock, onUpdate }) {
                         placeholder="Ajoute tes observations, questions, points à approfondir…"
                         value={notes[section.id] || ""}
                         onChange={(e) => updateNote(section.id, e.target.value)}
-                        rows={2}
+                        ref={el => { if (el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; } }}
+                        onInput={e => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; }}
                       />
                     </div>
                   </div>

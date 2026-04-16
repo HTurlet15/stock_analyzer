@@ -24,7 +24,7 @@
 .score-btn.orange.active { background: var(--orange-dim); border-color: rgba(146,87,10,.3);  color: var(--orange); }
 .score-btn.green.active  { background: var(--green-dim);  border-color: rgba(13,122,60,.3);  color: var(--green); }
 .score-btn:hover { border-color: var(--border-bright); color: var(--text); }
-.moat-notes { width: 100%; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; color: var(--text); font-family: 'Inter', sans-serif; font-size: 12px; resize: vertical; outline: none; transition: border-color 0.15s; line-height: 1.5; }
+.moat-notes { width: 100%; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; color: var(--text); font-family: 'Inter', sans-serif; font-size: 12px; resize: none; overflow: hidden; min-height: 38px; outline: none; transition: border-color 0.15s; line-height: 1.5; box-sizing: border-box; }
 .moat-notes:focus { border-color: var(--accent); }
 .moat-notes::placeholder { color: var(--text-dim); }
 .moat-rule { background: var(--accent-dim); border: 1px solid rgba(79,70,229,.2); border-radius: 10px; padding: 14px 16px; font-size: 12px; color: var(--text-muted); line-height: 1.6; }

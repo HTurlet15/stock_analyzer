@@ -200,7 +200,7 @@ export default function MoatSection({ stock, onUpdate }) {
                   ))}
                 </div>
               </div>
-              <textarea className="moat-notes" placeholder="Tes observations..." value={m.notes} onChange={(e) => updateMoat(type.id, "notes", e.target.value)} rows={2} />
+              <textarea className="moat-notes" placeholder="Tes observations..." value={m.notes} onChange={(e) => updateMoat(type.id, "notes", e.target.value)} ref={el => { if (el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; } }} onInput={e => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; }} />
             </div>
           );
         })}
