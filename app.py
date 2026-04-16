@@ -149,11 +149,14 @@ def av_cashflow(symbol):
         capex  = -abs(capex_raw) if capex_raw is not None else None
         fcf    = (op_cf + capex) if op_cf is not None and capex is not None else None
         divs   = av_clean(r.get("dividendPayoutCommonStock")) or av_clean(r.get("dividendPayout"))
+        da_raw = av_clean(r.get("depreciationAndAmortization")) or av_clean(r.get("depreciation"))
         result.append({
-            "date":               r.get("fiscalDateEnding", "")[:10],
-            "freeCashFlow":       fcf,
-            "capitalExpenditure": capex,
-            "dividendsPaid":      -abs(divs) if divs is not None else None,
+            "date":                        r.get("fiscalDateEnding", "")[:10],
+            "freeCashFlow":                fcf,
+            "operatingCashFlow":           op_cf,
+            "depreciationAndAmortization": da_raw,
+            "capitalExpenditure":          capex,
+            "dividendsPaid":               -abs(divs) if divs is not None else None,
         })
     return result
 
@@ -379,20 +382,27 @@ def get_stock(symbol):
                                 "Purchase Of Property Plant And Equipment",
                                 "Purchases Of Property Plant And Equipment",
                                 "Capital Expenditures Reported")
+            op_cf = get_val(cf, col,
+                            "Operating Cash Flow",
+                            "Cash Flows From Operations",
+                            "Net Cash Provided By Operating Activities",
+                            "Total Cash From Operating Activities")
+            da_val = get_val(cf, col,
+                             "Depreciation And Amortization",
+                             "Reconciled Depreciation",
+                             "Depreciation Amortization Depletion",
+                             "Depreciation")
             if fcf_val is None:
-                op_cf = get_val(cf, col,
-                                "Operating Cash Flow",
-                                "Cash Flows From Operations",
-                                "Net Cash Provided By Operating Activities",
-                                "Total Cash From Operating Activities")
                 if op_cf is not None and capex_val is not None:
                     # capex_val is negative in yfinance (cash outflow)
                     fcf_val = clean(op_cf + capex_val)
 
             cashflow.append({
-                "date":               col_date(col),
-                "freeCashFlow":       fcf_val,
-                "capitalExpenditure": capex_val,
+                "date":                        col_date(col),
+                "freeCashFlow":                fcf_val,
+                "operatingCashFlow":           clean(op_cf)  if op_cf  is not None else None,
+                "depreciationAndAmortization": clean(da_val) if da_val is not None else None,
+                "capitalExpenditure":          capex_val,
                 "dividendsPaid":      get_val(cf, col,
                                               "Common Stock Dividend Paid",
                                               "Cash Dividends Paid",

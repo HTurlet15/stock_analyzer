@@ -166,10 +166,13 @@ const FinancialTable = ({ raw, period }) => {
 
   // Cash Flow
   sec("Cash Flow");
+  row("Flux opérationnel (OCF)",
+    y => byYear(cf, y).operatingCashFlow, fM,
+    v => trendCAGR(v), curCF.operatingCashFlow);
   row("Free Cash Flow",
     y => byYear(cf, y).freeCashFlow, fM,
     v => trendCAGR(v), curCF.freeCashFlow);
-  row("Capex",
+  row("Capex total",
     y => { const r = byYear(cf, y); return r.capitalExpenditure != null ? Math.abs(r.capitalExpenditure) : null; }, fM,
     v => trendCAGR(v, 0.05, 0.02),
     curCF.capitalExpenditure != null ? Math.abs(curCF.capitalExpenditure) : null);
@@ -177,6 +180,34 @@ const FinancialTable = ({ raw, period }) => {
     y => { const r = byYear(cf, y); return r.dividendsPaid != null ? Math.abs(r.dividendsPaid) : null; }, fM,
     v => trendCAGR(v, 0.03, 0.01),
     curCF.dividendsPaid != null ? Math.abs(curCF.dividendsPaid) : null);
+
+  // Capex decomposition & Owner's Earnings
+  sec("Capex & Owner's Earnings");
+  row("D&A — capex maintenance (estimé)",
+    y => byYear(cf, y).depreciationAndAmortization, fM,
+    v => trendCAGR(v, 0.05, 0.02),
+    curCF.depreciationAndAmortization);
+  row("Capex de croissance (calculé)",
+    y => {
+      const r = byYear(cf, y);
+      const cap = r.capitalExpenditure != null ? Math.abs(r.capitalExpenditure) : null;
+      const da  = r.depreciationAndAmortization;
+      return cap != null && da != null ? Math.max(0, cap - da) : null;
+    }, fM,
+    v => trendCAGR(v, 0.05, 0.02),
+    (() => {
+      const cap = curCF.capitalExpenditure != null ? Math.abs(curCF.capitalExpenditure) : null;
+      return cap != null && curCF.depreciationAndAmortization != null ? Math.max(0, cap - curCF.depreciationAndAmortization) : null;
+    })());
+  row("Owner's Earnings",
+    y => {
+      const r = byYear(cf, y);
+      return r.operatingCashFlow != null && r.depreciationAndAmortization != null
+        ? r.operatingCashFlow - r.depreciationAndAmortization : null;
+    }, fM,
+    v => trendCAGR(v),
+    curCF.operatingCashFlow != null && curCF.depreciationAndAmortization != null
+      ? curCF.operatingCashFlow - curCF.depreciationAndAmortization : null);
 
   // Rentabilité
   sec("Rentabilité");

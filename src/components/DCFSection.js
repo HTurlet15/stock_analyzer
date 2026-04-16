@@ -57,6 +57,15 @@ const METRICS = [
     getMultHist: (s) => (s.met || []).filter(r => r.priceToBookRatio != null && r.priceToBookRatio > 0).map(r => r.priceToBookRatio),
     multLabel: "P/B",
   },
+  {
+    key: "oe", label: "Owner's Earnings",
+    getCurrent:  (s) => s.ownerEarningsCurrent,
+    getHistory:  (s) => (s.cf || [])
+      .filter(r => r.operatingCashFlow != null && r.depreciationAndAmortization != null)
+      .map(r => ({ year: r.date?.slice(0,4), value: r.operatingCashFlow - r.depreciationAndAmortization })),
+    getMultHist: (s) => (s.met || []).filter(r => r.peRatio != null && r.peRatio > 0 && r.peRatio < 150).map(r => r.peRatio),
+    multLabel: "P/OE",
+  },
 ];
 
 /* ─── Helpers ─────────────────────────────────────────────────────────────── */

@@ -95,6 +95,13 @@ export const processData = (raw) => {
   const capex    = capexValid.length > 0 ? Math.abs(capexValid[0].capitalExpenditure) : null;
   const capexOld = capexValid.length > 1 ? Math.abs(capexValid[capexValid.length - 1].capitalExpenditure) : null;
   const capexGrowing = capex != null && capexOld != null && capex > capexOld;
+
+  // Owner's Earnings = OCF − D&A (maintenance capex proxy)
+  // D&A is used as maintenance capex estimate — it's a non-cash add-back in OCF,
+  // so subtracting it gives the cash earnings after sustaining the asset base.
+  const ocfCurrent = latestCF.operatingCashFlow;
+  const daCurrent  = latestCF.depreciationAndAmortization;
+  const ownerEarningsCurrent = ocfCurrent != null && daCurrent != null ? ocfCurrent - daCurrent : null;
   const profitsVsDebt = latestInc.netIncome != null && netDebt != null ? latestInc.netIncome > 0 && (netDebt / latestInc.netIncome) < 5 : null;
   const cashFollowsEarnings = fcfCurrent != null && latestInc.netIncome > 0 ? fcfCurrent / latestInc.netIncome > 0.7 : null;
   const dividendCoveredByEarnings = dividendsPaid && latestInc.netIncome != null && latestInc.netIncome > 0 ? dividendsPaid < latestInc.netIncome : null;
@@ -162,6 +169,7 @@ export const processData = (raw) => {
     pfcfCurrent, pfcfHistorical, pfcfHistoricalYears,
     analystEpsGrowth, analystRevGrowth,
     dividendYield, dividendPerShare, divGrowth,
+    ownerEarningsCurrent,
     priceTarget, analystRating,
     inc, cf, met, rat, est, divs, bal,
   };
