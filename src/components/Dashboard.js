@@ -1,10 +1,13 @@
 import { useState, useEffect } from "react";
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { fetchAllData } from "../api";
 import { processData, calculateDCF } from "../utils";
 import { loadThresholds, saveThresholds, DEFAULT_THRESHOLDS, THRESHOLD_CONFIGS } from "../thresholds";
 import { computePositionStats } from "./PositionsSection";
 import StockCard from "./StockCard";
 import "./Dashboard.css";
+
+const PIE_COLORS = ["#6366f1","#22c55e","#f59e0b","#ef4444","#3b82f6","#8b5cf6","#ec4899","#14b8a6","#f97316","#84cc16","#a78bfa","#fb923c"];
 
 // ── Settings panel ────────────────────────────────────────────────────────────
 
@@ -129,6 +132,7 @@ export default function Dashboard() {
   const [thresholds, setThresholds] = useState(() => loadThresholds());
   const [showSettings, setShowSettings] = useState(false);
   const [refreshingAll, setRefreshingAll] = useState(false);
+  const [showAllocation, setShowAllocation] = useState(false);
 
   // Persist watchlist to localStorage on every change
   useEffect(() => {
@@ -327,7 +331,16 @@ export default function Dashboard() {
 
       {ranked.filter((s) => s.assumptions?.base).length > 1 && (
         <div className="ranking-banner fade-in">
-          <p className="section-label">Ranking — Scénario Base (avec dividendes)</p>
+          <div className="ranking-header">
+            <p className="section-label">Ranking — Scénario Base (avec dividendes)</p>
+            <button
+              className={`btn-allocation ${showAllocation ? "active" : ""}`}
+              onClick={() => setShowAllocation(v => !v)}
+              title="Répartition du portefeuille"
+            >
+              ◑ Répartition
+            </button>
+          </div>
           <div className="ranking-list">
             {ranked.filter((s) => s.assumptions?.base).map((s, i) => (
               <div key={s.symbol} className="ranking-item">
@@ -340,6 +353,55 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
+          {showAllocation && (() => {
+            const pieData = watchlist
+              .map(s => {
+                const st = s.positions?.length ? computePositionStats(s.positions, s.price, s.dividendPerShare) : null;
+                return { symbol: s.symbol, value: st?.currentValue ?? 0 };
+              })
+              .filter(d => d.value > 0);
+            const total = pieData.reduce((sum, d) => sum + d.value, 0);
+            if (!pieData.length) return (
+              <p className="allocation-empty">Ajoutez des positions dans chaque action (onglet Positions) pour voir la répartition.</p>
+            );
+            return (
+              <div className="allocation-wrap">
+                <p className="allocation-title">Répartition du portefeuille par action — valeur de marché actuelle</p>
+                <ResponsiveContainer width="100%" height={260}>
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      dataKey="value"
+                      nameKey="symbol"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={65}
+                      outerRadius={105}
+                      paddingAngle={2}
+                    >
+                      {pieData.map((_, i) => (
+                        <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value, name) => [
+                        `${((value / total) * 100).toFixed(1)}%  (${value >= 1e6 ? `$${(value/1e6).toFixed(2)}M` : `$${value.toFixed(0)}`})`,
+                        name,
+                      ]}
+                      contentStyle={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }}
+                    />
+                    <Legend
+                      formatter={(value, entry) => (
+                        <span style={{ fontSize: 12, color: "var(--text)" }}>
+                          {value} <span style={{ color: "var(--text-muted)" }}>{((entry.payload.value / total) * 100).toFixed(1)}%</span>
+                        </span>
+                      )}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            );
+          })()}
         </div>
       )}
 
