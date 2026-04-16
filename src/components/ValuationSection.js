@@ -58,15 +58,39 @@ const InlineChart = ({ data, dataKey, fmt, color }) => {
 const buildRows = (t) => [
   {
     key: "peRatio",
-    label: "PER historique",
+    label: "PER (Price / Earnings)",
     fmt: v => v != null ? `${num(v, 1)}x` : "—",
     colorFn: v => scoreColor(v, t.perGood, t.perOk, true),
     chartColor: "var(--blue)",
     chartFmt: v => `${num(v, 1)}x`,
   },
   {
-    key: "priceToSales",
-    label: "Price / Sales",
+    key: "pfcfRatio",
+    label: "Price / FCF",
+    fmt: v => v != null ? `${num(v, 1)}x` : "—",
+    colorFn: () => "dim",
+    chartColor: "var(--blue)",
+    chartFmt: v => `${num(v, 1)}x`,
+  },
+  {
+    key: "priceToEbit",
+    label: "Price / EBIT",
+    fmt: v => v != null ? `${num(v, 1)}x` : "—",
+    colorFn: () => "dim",
+    chartColor: "var(--blue)",
+    chartFmt: v => `${num(v, 1)}x`,
+  },
+  {
+    key: "priceToEbitda",
+    label: "Price / EBITDA",
+    fmt: v => v != null ? `${num(v, 1)}x` : "—",
+    colorFn: () => "dim",
+    chartColor: "var(--blue)",
+    chartFmt: v => `${num(v, 1)}x`,
+  },
+  {
+    key: "priceToOcf",
+    label: "Price / OCF",
     fmt: v => v != null ? `${num(v, 1)}x` : "—",
     colorFn: () => "dim",
     chartColor: "var(--blue)",
@@ -74,7 +98,15 @@ const buildRows = (t) => [
   },
   {
     key: "priceToBook",
-    label: "Price / Book",
+    label: "Price / Book Value",
+    fmt: v => v != null ? `${num(v, 1)}x` : "—",
+    colorFn: () => "dim",
+    chartColor: "var(--blue)",
+    chartFmt: v => `${num(v, 1)}x`,
+  },
+  {
+    key: "priceToOwnerEarnings",
+    label: "Price / Owner's Earnings",
     fmt: v => v != null ? `${num(v, 1)}x` : "—",
     colorFn: () => "dim",
     chartColor: "var(--blue)",
@@ -135,18 +167,35 @@ export default function ValuationSection({ stock, thresholds: t }) {
 
   // Current-year values (live from quote)
   const currentYear = new Date().getFullYear().toString();
-  const ebitdaCurrent = (raw.income?.[0] || {}).ebitda;
+  const latestIncome = raw.income?.[0] || {};
+  const latestCf     = raw.cashflow?.[0] || {};
+  const ebitdaCurrent    = latestIncome.ebitda;
+  const ebitCurrent      = latestIncome.operatingIncome;
+  const ocfCurrent       = latestCf.operatingCashFlow;
+  const daCurrent        = latestCf.depreciationAndAmortization;
+  const fcfCurrent       = latestCf.freeCashFlow;
+  const oeCurrent        = ocfCurrent != null && daCurrent != null ? ocfCurrent - daCurrent : null;
+  const sc               = s.sharesCurrent;
+
   const currentValues = {
-    peRatio:      s.peCurrent,
-    priceToSales: s.price && s.revenueCurrent && s.sharesCurrent > 0
-      ? s.price / (s.revenueCurrent / s.sharesCurrent) : null,
-    priceToBook:  s.price && s.equity && s.equity > 0 && s.sharesCurrent > 0
-      ? s.price / (s.equity / s.sharesCurrent) : null,
-    evToEbitda:   s.marketCap != null && s.netDebt != null && ebitdaCurrent && ebitdaCurrent > 0
-      ? (s.marketCap + s.netDebt) / ebitdaCurrent : null,
-    roe:          s.roe,
-    roic:         s.roic,
-    marketCap:    s.marketCap,
+    peRatio:              s.peCurrent,
+    pfcfRatio:            s.price && fcfCurrent && fcfCurrent > 0 && sc > 0
+                            ? s.price / (fcfCurrent / sc) : null,
+    priceToEbit:          s.price && ebitCurrent && ebitCurrent > 0 && sc > 0
+                            ? s.price / (ebitCurrent / sc) : null,
+    priceToEbitda:        s.price && ebitdaCurrent && ebitdaCurrent > 0 && sc > 0
+                            ? s.price / (ebitdaCurrent / sc) : null,
+    priceToOcf:           s.price && ocfCurrent && ocfCurrent > 0 && sc > 0
+                            ? s.price / (ocfCurrent / sc) : null,
+    priceToBook:          s.price && s.equity && s.equity > 0 && sc > 0
+                            ? s.price / (s.equity / sc) : null,
+    priceToOwnerEarnings: s.price && oeCurrent && oeCurrent > 0 && sc > 0
+                            ? s.price / (oeCurrent / sc) : null,
+    evToEbitda:           s.marketCap != null && s.netDebt != null && ebitdaCurrent && ebitdaCurrent > 0
+                            ? (s.marketCap + s.netDebt) / ebitdaCurrent : null,
+    roe:                  s.roe,
+    roic:                 s.roic,
+    marketCap:            s.marketCap,
   };
 
   // Chart data includes current year as final point

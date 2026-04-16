@@ -116,6 +116,7 @@ def av_income(symbol):
             "revenue":               av_clean(r.get("totalRevenue")),
             "netIncome":             av_clean(r.get("netIncome")),
             "ebitda":                ebitda,
+            "operatingIncome":       av_clean(r.get("operatingIncome")) or av_clean(r.get("ebit")),
             "eps":                   av_clean(r.get("reportedEPS")) or av_clean(r.get("dilutedEPS")) or av_clean(r.get("basicEPS")),
             "weightedAverageShsOut": av_clean(r.get("commonStockSharesOutstanding")),
         })
@@ -320,6 +321,11 @@ def get_stock(symbol):
                                                  "Net Income Applicable To Common Shares"),
                 "ebitda":                get_val(inc, col,
                                                  "EBITDA", "Normalized EBITDA"),
+                "operatingIncome":       get_val(inc, col,
+                                                 "Operating Income",
+                                                 "Total Operating Income As Reported",
+                                                 "Operating Profit",
+                                                 "EBIT"),
                 "eps":                   get_val(inc, col,
                                                  "Basic EPS", "Diluted EPS",
                                                  "Basic Earnings Per Share",
@@ -475,16 +481,34 @@ def get_stock(symbol):
         pfcf_ratio     = clean(hist_price / (fcf_val / shares)) \
                          if hist_price and fcf_val and fcf_val > 0 and shares and shares > 0 else None
 
+        op_income  = item.get("operatingIncome")
+        op_cf      = cf_row.get("operatingCashFlow")
+        da_val     = cf_row.get("depreciationAndAmortization")
+        owner_earn = (op_cf - da_val) if op_cf is not None and da_val is not None else None
+
+        price_to_ebit = clean(hist_price / (op_income / shares)) \
+                        if hist_price and op_income and op_income > 0 and shares and shares > 0 else None
+        price_to_ebitda = clean(hist_price / (ebitda / shares)) \
+                          if hist_price and ebitda and ebitda > 0 and shares and shares > 0 else None
+        price_to_ocf = clean(hist_price / (op_cf / shares)) \
+                       if hist_price and op_cf and op_cf > 0 and shares and shares > 0 else None
+        price_to_oe  = clean(hist_price / (owner_earn / shares)) \
+                       if hist_price and owner_earn and owner_earn > 0 and shares and shares > 0 else None
+
         metrics.append({
-            "date":         date_str,
-            "roic":         roic,
-            "roe":          roe,
-            "peRatio":      pe_ratio,
-            "pfcfRatio":    pfcf_ratio,
-            "priceToSales": price_to_sales,
-            "priceToBook":  price_to_book,
-            "evToEbitda":   ev_to_ebitda,
-            "marketCap":    mc,
+            "date":                 date_str,
+            "roic":                 roic,
+            "roe":                  roe,
+            "peRatio":              pe_ratio,
+            "pfcfRatio":            pfcf_ratio,
+            "priceToSales":         price_to_sales,
+            "priceToBook":          price_to_book,
+            "evToEbitda":           ev_to_ebitda,
+            "marketCap":            mc,
+            "priceToEbit":          price_to_ebit,
+            "priceToEbitda":        price_to_ebitda,
+            "priceToOcf":           price_to_ocf,
+            "priceToOwnerEarnings": price_to_oe,
         })
     metrics.sort(key=lambda x: x["date"], reverse=True)
 

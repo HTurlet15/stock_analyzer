@@ -123,7 +123,11 @@ const makeDcfDefaults = (processed, years) => {
 
 export default function Dashboard() {
   const [watchlist, setWatchlist] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("sa_watchlist") || "[]"); }
+    try {
+      const saved = JSON.parse(localStorage.getItem("sa_watchlist") || "[]");
+      // Clear any stuck refreshing flags from a previous crashed/interrupted session
+      return saved.map(s => ({ ...s, refreshing: false }));
+    }
     catch { return []; }
   });
   const [input, setInput] = useState("");
