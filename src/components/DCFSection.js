@@ -180,11 +180,23 @@ const ChartTooltip = ({ active, payload, label }) => {
 export default function DCFSection({ stock: s, thresholds, onUpdate }) {
   const effectiveShares = s.impliedShares ?? s.sharesCurrent; // in millions (FMP already in millions)
 
+  /* ── Restore saved params or compute defaults ─────────────────────────── */
+  const saved = s.dcfAssumptions?.metric !== undefined ? s.dcfAssumptions : null;
+  const initMetricKey  = saved?.metric ?? "fcf";
+  const initYears      = saved?.years  ?? 5;
+  const initMetric     = METRICS.find(m => m.key === initMetricKey);
+  const initHistArr    = initMetric.getHistory(s);
+  const initHistGrowth = histCAGR(initHistArr, initYears);
+  const initHistMult   = avgMultiple(initMetric.getMultHist(s), initYears);
+  const initHistShareCh = shareCAGR(s.inc, initYears);
+  const initCurrentVal  = initMetric.getCurrent(s);
+
   /* ── Metric selection ─────────────────────────────────────────────────── */
-  const [metricKey, setMetricKey] = useState("fcf");
+  const [metricKey, setMetricKey] = useState(initMetricKey);
   const [dropOpen, setDropOpen]   = useState(false);
-  const dropRef = useRef(null);
-  const metric = METRICS.find(m => m.key === metricKey);
+  const dropRef    = useRef(null);
+  const isMounted  = useRef(false);  // skip re-seed on first render
+  const metric     = METRICS.find(m => m.key === metricKey);
 
   useEffect(() => {
     const close = (e) => { if (dropRef.current && !dropRef.current.contains(e.target)) setDropOpen(false); };
@@ -193,27 +205,28 @@ export default function DCFSection({ stock: s, thresholds, onUpdate }) {
   }, []);
 
   /* ── Auto-fill horizon ────────────────────────────────────────────────── */
-  const [years, setYears] = useState(5);
+  const [years, setYears] = useState(initYears);
 
-  /* ── Compute hints based on metric + years ────────────────────────────── */
-  const histArr    = metric.getHistory(s);          // newest-first [{year,value}]
+  /* ── Compute hints based on current metric + years (always live) ──────── */
+  const histArr    = metric.getHistory(s);
   const multArr    = metric.getMultHist(s);
   const histGrowth = histCAGR(histArr, years);
   const histMult   = avgMultiple(multArr, years);
   const histShareCh = shareCAGR(s.inc, years);
-  const currentVal = metric.getCurrent(s);          // in millions
+  const currentVal = metric.getCurrent(s);
 
-  /* ── DCF parameters (with manual override) ────────────────────────────── */
-  const [growthRate,    setGrowthRate]    = useState(histGrowth ?? 0.07);
-  const [growthDecay,   setGrowthDecay]   = useState(0.05);
-  const [multiple,      setMultiple]      = useState(histMult ?? s.pfcfHistorical ?? 20);
-  const [targetReturn,  setTargetReturn]  = useState(thresholds?.fairValueTargetReturn ?? 0.10);
-  const [divGrowth,     setDivGrowth]     = useState(s.divGrowth ?? 0);
-  const [shareChange,   setShareChange]   = useState(histShareCh ?? 0);
-  const [baseValue,     setBaseValue]     = useState(currentVal ?? 0);
+  /* ── DCF parameters — restored from saved or computed defaults ────────── */
+  const [growthRate,    setGrowthRate]    = useState(saved?.growthRate  ?? initHistGrowth  ?? 0.07);
+  const [growthDecay,   setGrowthDecay]   = useState(saved?.growthDecay ?? 0.05);
+  const [multiple,      setMultiple]      = useState(saved?.multiple    ?? initHistMult    ?? s.pfcfHistorical ?? 20);
+  const [targetReturn,  setTargetReturn]  = useState(saved?.targetReturn ?? thresholds?.fairValueTargetReturn ?? 0.10);
+  const [divGrowth,     setDivGrowth]     = useState(saved?.divGrowth   ?? s.divGrowth ?? 0);
+  const [shareChange,   setShareChange]   = useState(saved?.shareChange ?? initHistShareCh ?? 0);
+  const [baseValue,     setBaseValue]     = useState(saved?.baseValue   ?? initCurrentVal ?? 0);
 
-  // Re-seed when metric or years changes
+  // Re-seed only when metric or years changes AFTER mount (skip initial render)
   useEffect(() => {
+    if (!isMounted.current) { isMounted.current = true; return; }
     const g  = histCAGR(metric.getHistory(s), years);
     const mu = avgMultiple(metric.getMultHist(s), years);
     const sc = shareCAGR(s.inc, years);
