@@ -51,7 +51,7 @@
 .btn-allocation { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 7px; padding: 5px 12px; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 500; color: var(--text-muted); cursor: pointer; transition: all 0.15s; }
 .btn-allocation:hover, .btn-allocation.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
 .allocation-wrap { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 16px; }
-.allocation-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-dim); margin-bottom: 8px; }
+.allocation-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-dim); margin-bottom: 8px; text-align: center; }
 .allocation-empty { margin-top: 16px; font-size: 12px; color: var(--text-dim); text-align: center; padding: 20px 0; border-top: 1px solid var(--border); }
 .ranking-item { display: flex; align-items: center; gap: 10px; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; }
 .rank-pos { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
