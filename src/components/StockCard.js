@@ -180,6 +180,17 @@ const FinancialTable = ({ raw, period }) => {
     y => { const r = byYear(cf, y); return r.dividendsPaid != null ? Math.abs(r.dividendsPaid) : null; }, fM,
     v => trendCAGR(v, 0.03, 0.01),
     curCF.dividendsPaid != null ? Math.abs(curCF.dividendsPaid) : null);
+  row("Dividende par action",
+    y => {
+      const c = byYear(cf, y); const i = byYear(inc, y);
+      const d = c.dividendsPaid != null ? Math.abs(c.dividendsPaid) : null;
+      return d != null && i.weightedAverageShsOut > 0 ? d / i.weightedAverageShsOut : null;
+    }, fE,
+    v => trendCAGR(v, 0.05, 0.02),
+    (() => {
+      const d = curCF.dividendsPaid != null ? Math.abs(curCF.dividendsPaid) : null;
+      return d != null && curInc.weightedAverageShsOut > 0 ? d / curInc.weightedAverageShsOut : null;
+    })());
 
   // Capex decomposition & Owner's Earnings
   sec("Capex & Owner's Earnings");

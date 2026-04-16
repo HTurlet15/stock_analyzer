@@ -110,6 +110,12 @@ export default function SyntheseSection({ stock, thresholds: t }) {
         <div className="verdict-right">
           <span className="verdict-label">{verdict.label}</span>
           <span className="verdict-msg">{verdict.msg}</span>
+          {(() => {
+            const applicable = SCORE_CRITERIA.filter(c => c.get(s, t) !== null).length;
+            return applicable < SCORE_CRITERIA.length
+              ? <span className="verdict-na">{applicable}/{SCORE_CRITERIA.length} critères applicables</span>
+              : null;
+          })()}
         </div>
         <button className="score-detail-btn" onClick={() => setShowScoreDetail(v => !v)}>
           {showScoreDetail ? "Masquer le détail" : "Voir le détail"}
@@ -119,7 +125,7 @@ export default function SyntheseSection({ stock, thresholds: t }) {
       {/* ── Score detail ───────────────────────────────────────────────────── */}
       {showScoreDetail && (
         <div className="score-detail">
-          <p className="syn-col-title" style={{ marginBottom: 8 }}>Détail du score — 13 critères</p>
+          <p className="syn-col-title" style={{ marginBottom: 8 }}>Détail du score — {SCORE_CRITERIA.filter(c => c.get(s, t) !== null).length} critères applicables</p>
           <div className="score-detail-grid">
             {SCORE_CRITERIA.map(c => {
               const result = c.get(s, t);
@@ -161,6 +167,14 @@ export default function SyntheseSection({ stock, thresholds: t }) {
             color={scoreColor(s.fcfGrowth, t.fcfGrowthGood, t.fcfGrowthOk)}
             hint={`seuil vert ≥ ${pct(t.fcfGrowthGood)}`}
           />
+          {s.dividendPerShare > 0 && (
+            <MetricRow
+              label={`Croissance dividende — CAGR ${periodLabel}`}
+              value={pct(s.divGrowth)}
+              color={scoreColor(s.divGrowth, t.fcfGrowthGood, t.fcfGrowthOk)}
+              hint={`seuil vert ≥ ${pct(t.fcfGrowthGood)}`}
+            />
+          )}
           <MetricRow
             label="Marge nette"
             value={pct(s.netMargin)}
@@ -185,12 +199,14 @@ export default function SyntheseSection({ stock, thresholds: t }) {
             color={s.debtToEbitda != null && s.debtToEbitda < 0 ? "green" : scoreColor(s.debtToEbitda, t.debtEbitdaGood, t.debtEbitdaOk, true)}
             hint={s.debtToEbitda != null && s.debtToEbitda < 0 ? "dette nette négative" : `seuil vert ≤ ${t.debtEbitdaGood}x`}
           />
-          <MetricRow
-            label="Payout Ratio"
-            value={pct(s.payoutRatio)}
-            color={scoreColor(s.payoutRatio, t.payoutRatioGood, t.payoutRatioOk, true)}
-            hint={`seuil vert ≤ ${pct(t.payoutRatioGood)}`}
-          />
+          {s.dividendPerShare > 0 && (
+            <MetricRow
+              label="Payout Ratio"
+              value={pct(s.payoutRatio)}
+              color={scoreColor(s.payoutRatio, t.payoutRatioGood, t.payoutRatioOk, true)}
+              hint={`seuil vert ≤ ${pct(t.payoutRatioGood)}`}
+            />
+          )}
         </div>
 
         {/* Right: valuation + analysts + DCF */}

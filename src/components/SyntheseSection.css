@@ -28,6 +28,7 @@
 .verdict-banner.orange .verdict-label { color: var(--orange); }
 .verdict-banner.red    .verdict-label { color: var(--red);    }
 .verdict-msg { font-size: 13px; color: var(--text-muted); }
+.verdict-na  { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
 
 /* Main grid */
 .syn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
