@@ -757,28 +757,33 @@ Tu réponds UNIQUEMENT en JSON valide, sans markdown, sans texte avant ou après
 INFORMATIONS RÉCENTES TROUVÉES SUR LE WEB :
 {search_context[:5000]}
 
-RÈGLE ABSOLUE : chaque section doit contenir des faits précis — noms de produits/segments, chiffres de revenus, parts de marché, concurrents nommés, événements datés.
+RÈGLE DE QUALITÉ : chaque section doit contenir des faits précis et vérifiables — noms de produits/segments, chiffres de revenus, parts de marché, concurrents nommés, événements datés. Zéro affirmation vague.
 
-Génère une analyse structurée en 7 sections. RÈGLE DE FORMAT : utilise des bullet points (•) et des sauts de ligne (\\n) pour structurer le contenu. Chaque point doit être sur sa propre ligne précédée de "• ".
+RÈGLE DE FORMAT : écris comme un analyste senior, pas comme un formulaire. Mélange librement prose et bullet points selon ce qui sert le mieux l'analyse :
+- Utilise des paragraphes en prose pour expliquer le contexte, les dynamiques, les nuances
+- Utilise des bullet points (•) pour les listes énumérables (segments, concurrents, risques distincts)
+- Un bon bullet commence par le sujet en gras implicite ("Réglementaire : description détaillée"), pas par un verbe générique
+- Sépare les paragraphes et les blocs de bullets par \\n\\n dans le JSON
 
-1. overview : Vue d'ensemble — 1 phrase d'intro, puis bullets : fondation/histoire, taille (CA, capitalisation), marchés principaux, position géographique
-2. model : Modèle économique — bullets par segment de revenus avec % du CA si connu, type de revenus (récurrents/transactionnels), marges par segment si dispo
-3. products : Produits & services clés — 1 bullet par produit/service majeur avec chiffres (CA segment, part de marché, croissance)
-4. competition : Position concurrentielle — 1 bullet par concurrent direct nommé avec comparaison chiffrée, puis 1-2 bullets sur les avantages/désavantages
-5. risks : Risques principaux — 1 bullet par risque avec titre en gras implicite (ex: "Risque réglementaire : ..."), minimum 4 risques distincts
-6. weaknesses : Points faibles & alertes — 1 bullet par signal d'alerte concret (dépendance, dette, valorisation, décision critiquable)
-7. verdict : Structure OBLIGATOIRE en 3 blocs séparés par \\n\\n : "BULL CASE :\\n• point1\\n• point2\\n• point3" puis "BEAR CASE :\\n• point1\\n• point2\\n• point3" puis "À SURVEILLER :\\n• métrique1\\n• métrique2"
+Génère 7 sections :
+1. overview : Vue d'ensemble — commence par 1-2 phrases de contexte sur ce qu'est l'entreprise aujourd'hui, puis bullets sur les faits clés (fondation, taille CA/capitalisation, géographie, position de marché)
+2. model : Modèle économique — explique en prose comment l'entreprise crée et capte de la valeur, puis bullets par segment avec % du CA, type de revenu (récurrent/transactionnel), marges si connues
+3. products : Produits & services clés — 1-2 phrases sur le cœur de l'offre, puis bullets par produit/service majeur avec chiffres (CA segment, croissance, part de marché)
+4. competition : Position concurrentielle — paragraphe d'analyse sur la dynamique compétitive globale, puis bullets sur les concurrents directs nommés avec comparaison chiffrée, puis bullets sur les avantages et désavantages structurels
+5. risks : Risques principaux — bullets par risque distinct (min. 4), chaque bullet développé en 2-3 phrases avec le mécanisme de risque, la probabilité/impact, et les signaux à surveiller
+6. weaknesses : Points faibles & alertes — prose analytique identifiant les vulnérabilités structurelles, complétée par bullets sur les signaux d'alerte concrets (dépendances, dette, décisions contestables)
+7. verdict : Structure OBLIGATOIRE en 3 blocs séparés par \\n\\n. Chaque bloc : titre en majuscules suivi de bullets développés (2-3 phrases par bullet, pas juste un mot-clé) : "BULL CASE :\\n• argument1 développé\\n• argument2 développé" puis "BEAR CASE :\\n• risque1 développé\\n• risque2 développé" puis "À SURVEILLER :\\n• métrique ou événement1\\n• métrique ou événement2"
 
-Réponds avec ce JSON exact (les \\n dans les strings JSON représentent de vrais sauts de ligne) :
+Réponds avec ce JSON exact (les \\n représentent de vrais sauts de ligne dans le rendu) :
 {{
   "sections": [
-    {{"id": "overview",     "title": "Vue d'ensemble",           "content": "phrase intro\\n• bullet1\\n• bullet2\\n• bullet3"}},
-    {{"id": "model",        "title": "Modèle économique",        "content": "• Segment1 (~X% du CA) : description\\n• Segment2..."}},
-    {{"id": "products",     "title": "Produits & services clés", "content": "• Produit1 : description avec chiffres\\n• Produit2..."}},
-    {{"id": "competition",  "title": "Position concurrentielle", "content": "• Concurrent1 : comparaison chiffrée\\n• Avantage clé : ..."}},
-    {{"id": "risks",        "title": "Risques principaux",       "content": "• Risque réglementaire : description\\n• Risque concurrentiel : ..."}},
-    {{"id": "weaknesses",   "title": "Points faibles & alertes", "content": "• Signal1 : description\\n• Signal2 : ..."}},
-    {{"id": "verdict",      "title": "Verdict investisseur",     "content": "BULL CASE :\\n• point1\\n• point2\\n\\nBEAR CASE :\\n• point1\\n• point2\\n\\nÀ SURVEILLER :\\n• métrique1\\n• métrique2"}}
+    {{"id": "overview",     "title": "Vue d'ensemble",           "content": "..."}},
+    {{"id": "model",        "title": "Modèle économique",        "content": "..."}},
+    {{"id": "products",     "title": "Produits & services clés", "content": "..."}},
+    {{"id": "competition",  "title": "Position concurrentielle", "content": "..."}},
+    {{"id": "risks",        "title": "Risques principaux",       "content": "..."}},
+    {{"id": "weaknesses",   "title": "Points faibles & alertes", "content": "..."}},
+    {{"id": "verdict",      "title": "Verdict investisseur",     "content": "BULL CASE :\\n• ...\\n\\nBEAR CASE :\\n• ...\\n\\nÀ SURVEILLER :\\n• ..."}}
   ]
 }}"""
 
@@ -886,7 +891,7 @@ Réponds avec ce JSON exact (analysis = 3-5 phrases avec faits précis, noms, da
     client = _anthropic.Anthropic(api_key=ANTHROPIC_KEY)
     msg = client.messages.create(
         model="claude-sonnet-4-5",
-        max_tokens=4000 if analysis_type == "business" else 3000,
+        max_tokens=6000 if analysis_type == "business" else 3000,
         system=system,
         messages=[{"role": "user", "content": user_prompt}],
     )
