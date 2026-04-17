@@ -913,7 +913,7 @@ Réponds avec ce JSON exact (analysis = 3-5 phrases avec faits précis, noms, da
     client = _anthropic.Anthropic(api_key=ANTHROPIC_KEY)
     msg = client.messages.create(
         model="claude-sonnet-4-5",
-        max_tokens=6000 if analysis_type == "business" else 3000,
+        max_tokens=8000 if analysis_type == "business" else 3000,
         system=system,
         messages=[{"role": "user", "content": user_prompt}],
     )
@@ -933,10 +933,15 @@ Réponds avec ce JSON exact (analysis = 3-5 phrases avec faits précis, noms, da
             ("verdict",     "Verdict investisseur"),
         ]
         sections = []
-        for sid, title in SECTION_META:
+        for idx, (sid, title) in enumerate(SECTION_META):
             pattern = rf"===\s*BEGIN\s*:\s*{sid}\s*===(.*?)===\s*END\s*:\s*{sid}\s*==="
             m = _re.search(pattern, raw_text, _re.DOTALL | _re.IGNORECASE)
-            content = m.group(1).strip() if m else ""
+            if m:
+                content = m.group(1).strip()
+            else:
+                # Fallback: capture everything after BEGIN tag (last section may lack END if truncated)
+                m2 = _re.search(rf"===\s*BEGIN\s*:\s*{sid}\s*===(.*)", raw_text, _re.DOTALL | _re.IGNORECASE)
+                content = m2.group(1).strip() if m2 else ""
             sections.append({"id": sid, "title": title, "content": content})
         result = {"sections": sections}
 
