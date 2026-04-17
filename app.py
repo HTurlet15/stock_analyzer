@@ -435,6 +435,31 @@ def get_stock(symbol):
         except Exception:
             pass
 
+    # ── Split-adjust weightedAverageShsOut ───────────────────────────────────
+    # Normalize all historical share counts to current (post-split) terms so that
+    # CAGR reflects real buyback/dilution, not split artifacts.
+    # cumulative_factor(date) = product of all split ratios that occurred AFTER that date.
+    try:
+        splits = ticker.splits
+        if splits is not None and not splits.empty:
+            splits.index = (splits.index.tz_localize(None)
+                            if splits.index.tz is not None else splits.index)
+            for entry in income:
+                shs = entry.get("weightedAverageShsOut")
+                if shs is None:
+                    continue
+                date_ts = pd.Timestamp(entry["date"])
+                future = splits[splits.index > date_ts]
+                if future.empty:
+                    continue
+                factor = 1.0
+                for ratio in future:
+                    factor *= float(ratio)
+                if factor != 1.0:
+                    entry["weightedAverageShsOut"] = clean(shs * factor)
+    except Exception:
+        pass
+
     # ── Price history (max range to cover AV's 20-year data) ─────────────────
     price_history = {}
     try:

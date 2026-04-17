@@ -93,16 +93,10 @@ const shareCAGR = (incArr, years) => {
   const valid = (incArr || []).filter(r => r.weightedAverageShsOut != null && r.weightedAverageShsOut > 0);
   const slice = valid.slice(0, years + 1);
   if (slice.length < 2) return null;
-  // Validate year-over-year changes — reject if any single jump > 60%
-  // (artifacts from split-adjusted vs unadjusted data mixing)
-  for (let i = 0; i < slice.length - 1; i++) {
-    const change = Math.abs(slice[i].weightedAverageShsOut / slice[i + 1].weightedAverageShsOut - 1);
-    if (change > 0.60) return null;
-  }
   const r = cagr(slice[slice.length - 1].weightedAverageShsOut, slice[0].weightedAverageShsOut, slice.length - 1);
-  // Cap at ±15%/yr — beyond that is a data artifact, not a real buyback/dilution rate
+  // Safety cap ±20%/yr — real buyback/dilution programs rarely exceed this
   if (r == null) return null;
-  return Math.max(-0.15, Math.min(0.15, r));
+  return Math.max(-0.20, Math.min(0.20, r));
 };
 
 const fmtM = (v) => {
