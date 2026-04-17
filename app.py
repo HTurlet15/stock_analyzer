@@ -867,13 +867,24 @@ Réponds avec ce JSON exact (analysis = 3-5 phrases avec faits précis, noms, da
     )
     raw_text = msg.content[0].text.strip()
 
+    # Strip markdown code fences if present
+    import re as _re
+    cleaned = _re.sub(r"```(?:json)?\s*", "", raw_text).strip()
+
+    def try_parse(text):
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            start = text.find("{")
+            end   = text.rfind("}") + 1
+            if start == -1 or end == 0:
+                raise
+            return json.loads(text[start:end])
+
     try:
-        result = json.loads(raw_text)
-    except json.JSONDecodeError:
-        # Try to extract JSON if Claude added any extra text
-        start = raw_text.find("{")
-        end   = raw_text.rfind("}") + 1
-        result = json.loads(raw_text[start:end])
+        result = try_parse(cleaned)
+    except json.JSONDecodeError as e:
+        return jsonify({"error": f"Réponse IA invalide (JSON malformé) : {e}"}), 500
 
     result["searchSources"] = sources[:6]
     return jsonify(result)
