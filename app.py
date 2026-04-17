@@ -892,24 +892,48 @@ Réponds avec ce JSON exact (analysis = 3-5 phrases avec faits précis, noms, da
     )
     raw_text = msg.content[0].text.strip()
 
-    # Strip markdown code fences if present
+    # ── Robust JSON extraction ────────────────────────────────────────────────
     import re as _re
-    cleaned = _re.sub(r"```(?:json)?\s*", "", raw_text).strip()
 
-    def try_parse(text):
-        try:
-            return json.loads(text)
-        except json.JSONDecodeError:
-            start = text.find("{")
-            end   = text.rfind("}") + 1
-            if start == -1 or end == 0:
-                raise
-            return json.loads(text[start:end])
+    def fix_json_strings(text):
+        """Replace literal control chars inside JSON string values with escape sequences.
+        Claude sometimes emits real newlines/tabs inside strings instead of \\n/\\t."""
+        out = []
+        in_str = False
+        skip = False
+        for ch in text:
+            if skip:
+                out.append(ch)
+                skip = False
+            elif ch == "\\" and in_str:
+                out.append(ch)
+                skip = True
+            elif ch == '"':
+                in_str = not in_str
+                out.append(ch)
+            elif in_str and ch == "\n":
+                out.append("\\n")
+            elif in_str and ch == "\r":
+                out.append("\\r")
+            elif in_str and ch == "\t":
+                out.append("\\t")
+            else:
+                out.append(ch)
+        return "".join(out)
+
+    # Strip markdown fences, fix control chars, then parse
+    cleaned = _re.sub(r"```(?:json)?\s*", "", raw_text).strip()
+    cleaned = fix_json_strings(cleaned)
 
     try:
-        result = try_parse(cleaned)
-    except json.JSONDecodeError as e:
-        return jsonify({"error": f"Réponse IA invalide (JSON malformé) : {e}"}), 500
+        result = json.loads(cleaned)
+    except json.JSONDecodeError:
+        start = cleaned.find("{")
+        end   = cleaned.rfind("}") + 1
+        try:
+            result = json.loads(cleaned[start:end])
+        except json.JSONDecodeError as e:
+            return jsonify({"error": f"Réponse IA invalide (JSON malformé) : {e}"}), 500
 
     result["searchSources"] = sources[:6]
     return jsonify(result)
