@@ -760,33 +760,53 @@ INFORMATIONS RÉCENTES TROUVÉES SUR LE WEB :
 
 RÈGLE DE QUALITÉ : chaque section doit contenir des faits précis et vérifiables — noms de produits/segments, chiffres de revenus, parts de marché, concurrents nommés, événements datés. Zéro affirmation vague.
 
-RÈGLE DE FORMAT : écris comme un analyste senior, pas comme un formulaire. Mélange librement prose et bullet points selon ce qui sert le mieux l'analyse :
-- Utilise des paragraphes en prose pour expliquer le contexte, les dynamiques, les nuances
-- Utilise des bullet points (•) pour les listes énumérables (segments, concurrents, risques distincts)
-- Un bon bullet commence par le sujet en gras implicite ("Réglementaire : description détaillée"), pas par un verbe générique
-- Sépare les paragraphes et les blocs de bullets par \\n\\n dans le JSON
+RÈGLE DE FORMAT : écris comme un analyste senior. Mélange prose et bullet points selon ce qui sert le mieux l'analyse :
+- Prose pour le contexte, les dynamiques, les nuances
+- Bullet points (•) pour les listes énumérables (segments, concurrents, risques)
+- Sépare les paragraphes par une ligne vide
 
-Génère 7 sections :
-1. overview : Vue d'ensemble — commence par 1-2 phrases de contexte sur ce qu'est l'entreprise aujourd'hui, puis bullets sur les faits clés (fondation, taille CA/capitalisation, géographie, position de marché)
-2. model : Modèle économique — explique en prose comment l'entreprise crée et capte de la valeur, puis bullets par segment avec % du CA, type de revenu (récurrent/transactionnel), marges si connues
-3. products : Produits & services clés — 1-2 phrases sur le cœur de l'offre, puis bullets par produit/service majeur avec chiffres (CA segment, croissance, part de marché)
-4. competition : Position concurrentielle — paragraphe d'analyse sur la dynamique compétitive globale, puis bullets sur les concurrents directs nommés avec comparaison chiffrée, puis bullets sur les avantages et désavantages structurels
-5. risks : Risques principaux — bullets par risque distinct (min. 4), chaque bullet développé en 2-3 phrases avec le mécanisme de risque, la probabilité/impact, et les signaux à surveiller
-6. weaknesses : Points faibles & alertes — prose analytique identifiant les vulnérabilités structurelles, complétée par bullets sur les signaux d'alerte concrets (dépendances, dette, décisions contestables)
-7. verdict : Structure OBLIGATOIRE en 3 blocs séparés par \\n\\n. Chaque bloc : titre en majuscules suivi de bullets développés (2-3 phrases par bullet, pas juste un mot-clé) : "BULL CASE :\\n• argument1 développé\\n• argument2 développé" puis "BEAR CASE :\\n• risque1 développé\\n• risque2 développé" puis "À SURVEILLER :\\n• métrique ou événement1\\n• métrique ou événement2"
+Génère exactement ces 7 sections dans cet ordre, en utilisant les délimiteurs indiqués :
 
-Réponds avec ce JSON exact (les \\n représentent de vrais sauts de ligne dans le rendu) :
-{{
-  "sections": [
-    {{"id": "overview",     "title": "Vue d'ensemble",           "content": "..."}},
-    {{"id": "model",        "title": "Modèle économique",        "content": "..."}},
-    {{"id": "products",     "title": "Produits & services clés", "content": "..."}},
-    {{"id": "competition",  "title": "Position concurrentielle", "content": "..."}},
-    {{"id": "risks",        "title": "Risques principaux",       "content": "..."}},
-    {{"id": "weaknesses",   "title": "Points faibles & alertes", "content": "..."}},
-    {{"id": "verdict",      "title": "Verdict investisseur",     "content": "BULL CASE :\\n• ...\\n\\nBEAR CASE :\\n• ...\\n\\nÀ SURVEILLER :\\n• ..."}}
-  ]
-}}"""
+===BEGIN:overview===
+Vue d'ensemble : 1-2 phrases de contexte, puis bullets sur fondation/taille CA/capitalisation/géographie/position de marché
+===END:overview===
+
+===BEGIN:model===
+Modèle économique : prose sur comment l'entreprise crée de la valeur, puis bullets par segment (% du CA, type récurrent/transactionnel, marges)
+===END:model===
+
+===BEGIN:products===
+Produits & services clés : 1-2 phrases sur le cœur de l'offre, puis bullets par produit/service avec chiffres
+===END:products===
+
+===BEGIN:competition===
+Position concurrentielle : paragraphe sur la dynamique compétitive, puis bullets concurrents nommés avec comparaison chiffrée, puis avantages/désavantages structurels
+===END:competition===
+
+===BEGIN:risks===
+Risques principaux : bullets par risque distinct (min. 4), chaque bullet développé en 2-3 phrases avec mécanisme, probabilité/impact, signaux
+===END:risks===
+
+===BEGIN:weaknesses===
+Points faibles & alertes : prose analytique sur les vulnérabilités structurelles, puis bullets sur signaux d'alerte concrets
+===END:weaknesses===
+
+===BEGIN:verdict===
+Trois blocs obligatoires séparés par une ligne vide :
+BULL CASE :
+• argument1 développé en 2-3 phrases
+• argument2 développé en 2-3 phrases
+
+BEAR CASE :
+• risque1 développé en 2-3 phrases
+• risque2 développé en 2-3 phrases
+
+À SURVEILLER :
+• métrique ou événement à suivre
+• métrique ou événement à suivre
+===END:verdict===
+
+Écris UNIQUEMENT le contenu entre les balises, sans aucun texte avant ou après."""
 
     elif analysis_type == "moat":
         system = """Tu es un analyste financier senior spécialisé en analyse fondamentale, style Morningstar Economic Moat Rating.
@@ -900,65 +920,70 @@ Réponds avec ce JSON exact (analysis = 3-5 phrases avec faits précis, noms, da
     )
     raw_text = msg.content[0].text.strip()
 
-    # ── Robust JSON extraction ────────────────────────────────────────────────
     import re as _re
 
-    def fix_json_strings(text):
-        """Fix common Claude JSON issues:
-        - Literal control chars (newline, tab…) inside strings → escaped versions
-        - Unescaped double-quotes inside strings → escaped \\\"
-        Uses a char-by-char state machine to stay inside/outside strings accurately.
-        """
-        out = []
-        in_str = False
-        skip = False  # True means next char is already escaped — pass through
-        for ch in text:
-            if skip:
-                out.append(ch)
-                skip = False
-            elif ch == "\\" and in_str:
-                # Start of an escape sequence — pass backslash + next char verbatim
-                out.append(ch)
-                skip = True
-            elif ch == '"':
-                if not in_str:
-                    # Opening quote
-                    in_str = True
+    # ── Business: delimiter-based parsing (immune to JSON escaping issues) ────
+    if analysis_type == "business":
+        SECTION_META = [
+            ("overview",    "Vue d'ensemble"),
+            ("model",       "Modèle économique"),
+            ("products",    "Produits & services clés"),
+            ("competition", "Position concurrentielle"),
+            ("risks",       "Risques principaux"),
+            ("weaknesses",  "Points faibles & alertes"),
+            ("verdict",     "Verdict investisseur"),
+        ]
+        sections = []
+        for sid, title in SECTION_META:
+            pattern = rf"===BEGIN:{sid}===(.*?)===END:{sid}==="
+            m = _re.search(pattern, raw_text, _re.DOTALL)
+            content = m.group(1).strip() if m else ""
+            sections.append({"id": sid, "title": title, "content": content})
+        result = {"sections": sections}
+
+    # ── Moat / Management: JSON with control-char fixing ─────────────────────
+    else:
+        def fix_control_chars(text):
+            """Replace literal control chars inside JSON string values."""
+            out = []
+            in_str = False
+            i = 0
+            while i < len(text):
+                ch = text[i]
+                if ch == '\\' and in_str:
                     out.append(ch)
+                    i += 1
+                    if i < len(text):
+                        out.append(text[i])
+                        i += 1
+                    continue
+                if ch == '"':
+                    in_str = not in_str
+                    out.append(ch)
+                elif in_str and ch == '\n':
+                    out.append('\\n')
+                elif in_str and ch == '\r':
+                    out.append('\\r')
+                elif in_str and ch == '\t':
+                    out.append('\\t')
+                elif in_str and ord(ch) < 0x20:
+                    out.append(f'\\u{ord(ch):04x}')
                 else:
-                    # Could be closing quote or unescaped quote inside string.
-                    # Peek at surrounding context: if followed by JSON structural chars
-                    # (, : } ] whitespace) it's a real closing quote; otherwise escape it.
-                    # We can't peek forward cheaply here, so we rely on the prompt fix
-                    # as primary guard and just toggle normally.
-                    in_str = False
                     out.append(ch)
-            elif in_str and ch == "\n":
-                out.append("\\n")
-            elif in_str and ch == "\r":
-                out.append("\\r")
-            elif in_str and ch == "\t":
-                out.append("\\t")
-            elif in_str and ord(ch) < 0x20:
-                # Other control chars (vertical tab, form feed, etc.)
-                out.append(f"\\u{ord(ch):04x}")
-            else:
-                out.append(ch)
-        return "".join(out)
+                i += 1
+            return ''.join(out)
 
-    # Strip markdown fences, fix control chars, then parse
-    cleaned = _re.sub(r"```(?:json)?\s*", "", raw_text).strip()
-    cleaned = fix_json_strings(cleaned)
-
-    try:
-        result = json.loads(cleaned)
-    except json.JSONDecodeError:
-        start = cleaned.find("{")
-        end   = cleaned.rfind("}") + 1
+        cleaned = _re.sub(r'```(?:json)?\s*', '', raw_text).strip()
+        cleaned = fix_control_chars(cleaned)
         try:
-            result = json.loads(cleaned[start:end])
-        except json.JSONDecodeError as e:
-            return jsonify({"error": f"Réponse IA invalide (JSON malformé) : {e}"}), 500
+            result = json.loads(cleaned)
+        except json.JSONDecodeError:
+            start = cleaned.find('{')
+            end   = cleaned.rfind('}') + 1
+            try:
+                result = json.loads(cleaned[start:end])
+            except json.JSONDecodeError as e:
+                return jsonify({"error": f"Réponse IA invalide (JSON malformé) : {e}"}), 500
 
     result["searchSources"] = sources[:6]
     return jsonify(result)
