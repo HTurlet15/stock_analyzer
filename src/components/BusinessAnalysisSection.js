@@ -1,7 +1,14 @@
 import { useState } from "react";
 import "./BusinessAnalysisSection.css";
 
-// Renders content with bullet points and block headers (BULL CASE:, etc.)
+// Convert **bold** markers to <strong> spans
+function renderBold(line) {
+  const parts = line.split(/\*\*(.+?)\*\*/);
+  if (parts.length === 1) return line;
+  return parts.map((part, i) => i % 2 === 1 ? <strong key={i}>{part}</strong> : part);
+}
+
+// Renders content with bullet points, block headers, and inline bold
 function FormattedContent({ text }) {
   if (!text) return null;
   return (
@@ -12,9 +19,9 @@ function FormattedContent({ text }) {
             if (!line.trim()) return null;
             const isHeader = /^[A-ZÀ-Ü\s]+\s*:$/.test(line.trim()) || /^(BULL CASE|BEAR CASE|À SURVEILLER)\s*:/i.test(line.trim());
             const isBullet = line.trim().startsWith("•");
-            if (isHeader) return <p key={li} className="ba-block-header">{line.trim()}</p>;
-            if (isBullet) return <p key={li} className="ba-bullet">{line.trim()}</p>;
-            return <p key={li} className="ba-prose">{line.trim()}</p>;
+            if (isHeader) return <p key={li} className="ba-block-header">{renderBold(line.trim())}</p>;
+            if (isBullet) return <p key={li} className="ba-bullet">{renderBold(line.trim())}</p>;
+            return <p key={li} className="ba-prose">{renderBold(line.trim())}</p>;
           })}
         </div>
       ))}
