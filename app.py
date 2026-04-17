@@ -748,8 +748,7 @@ Données financières (moyennes 5-10 ans) :
         system = """Tu es un analyste financier senior spécialisé en analyse fondamentale d'entreprises pour des investisseurs particuliers.
 Ta méthode : chaque affirmation doit être étayée par des faits précis — noms de produits, chiffres, parts de marché, événements datés, concurrents nommés.
 Une analyse générique sans exemple concret est inacceptable.
-Tu réponds UNIQUEMENT en JSON valide, sans markdown, sans texte avant ou après.
-RÈGLES JSON STRICTES : (1) N'utilise JAMAIS le caractère guillemet anglais (") à l'intérieur des valeurs de string — utilise des guillemets français (« ») ou des apostrophes (') à la place. (2) N'utilise JAMAIS de saut de ligne littéral dans une valeur de string — utilise \\n. (3) Le JSON doit être parseable directement par json.loads() Python."""
+Tu réponds en texte brut structuré avec des balises de section exactement comme demandé, sans aucun texte avant ou après les balises."""
 
         user_prompt = f"""Analyse en profondeur l'entreprise {company} ({sector} — {industry}) pour un investisseur qui envisage d'y investir.
 
@@ -935,8 +934,8 @@ Réponds avec ce JSON exact (analysis = 3-5 phrases avec faits précis, noms, da
         ]
         sections = []
         for sid, title in SECTION_META:
-            pattern = rf"===BEGIN:{sid}===(.*?)===END:{sid}==="
-            m = _re.search(pattern, raw_text, _re.DOTALL)
+            pattern = rf"===\s*BEGIN\s*:\s*{sid}\s*===(.*?)===\s*END\s*:\s*{sid}\s*==="
+            m = _re.search(pattern, raw_text, _re.DOTALL | _re.IGNORECASE)
             content = m.group(1).strip() if m else ""
             sections.append({"id": sid, "title": title, "content": content})
         result = {"sections": sections}
