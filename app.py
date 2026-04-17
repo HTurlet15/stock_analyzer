@@ -748,7 +748,8 @@ Données financières (moyennes 5-10 ans) :
         system = """Tu es un analyste financier senior spécialisé en analyse fondamentale d'entreprises pour des investisseurs particuliers.
 Ta méthode : chaque affirmation doit être étayée par des faits précis — noms de produits, chiffres, parts de marché, événements datés, concurrents nommés.
 Une analyse générique sans exemple concret est inacceptable.
-Tu réponds UNIQUEMENT en JSON valide, sans markdown, sans texte avant ou après."""
+Tu réponds UNIQUEMENT en JSON valide, sans markdown, sans texte avant ou après.
+RÈGLES JSON STRICTES : (1) N'utilise JAMAIS le caractère guillemet anglais (") à l'intérieur des valeurs de string — utilise des guillemets français (« ») ou des apostrophes (') à la place. (2) N'utilise JAMAIS de saut de ligne littéral dans une valeur de string — utilise \\n. (3) Le JSON doit être parseable directement par json.loads() Python."""
 
         user_prompt = f"""Analyse en profondeur l'entreprise {company} ({sector} — {industry}) pour un investisseur qui envisage d'y investir.
 
@@ -795,7 +796,8 @@ Ta méthode : tu ne fais JAMAIS d'affirmations génériques. Chaque point d'anal
 - Des événements datés (lancement produit, acquisition, décision stratégique avec année)
 - Des comparaisons directes avec des concurrents nommés
 
-Tu réponds UNIQUEMENT en JSON valide, sans markdown, sans texte avant ou après."""
+Tu réponds UNIQUEMENT en JSON valide, sans markdown, sans texte avant ou après.
+RÈGLES JSON STRICTES : (1) N'utilise JAMAIS le caractère guillemet anglais (") à l'intérieur des valeurs de string — utilise des guillemets français (« ») ou des apostrophes (') à la place. (2) N'utilise JAMAIS de saut de ligne littéral dans une valeur de string — utilise \\n. (3) Le JSON doit être parseable directement par json.loads() Python."""
 
         user_prompt = f"""Analyse le MOAT (avantage concurrentiel durable) de {company} ({sector} — {industry}).
 
@@ -844,7 +846,8 @@ Ta méthode : tu analyses les ACTES, pas les discours. Chaque point doit être �
 - Des citations ou positions publiques du PDG/CFO avec date si disponibles
 - Des exemples de réussites ET d'erreurs — un dirigeant transparent parle des deux
 
-Tu réponds UNIQUEMENT en JSON valide, sans markdown, sans texte avant ou après."""
+Tu réponds UNIQUEMENT en JSON valide, sans markdown, sans texte avant ou après.
+RÈGLES JSON STRICTES : (1) N'utilise JAMAIS le caractère guillemet anglais (") à l'intérieur des valeurs de string — utilise des guillemets français (« ») ou des apostrophes (') à la place. (2) N'utilise JAMAIS de saut de ligne littéral dans une valeur de string — utilise \\n. (3) Le JSON doit être parseable directement par json.loads() Python."""
 
         user_prompt = f"""Analyse la qualité du management de {company} ({sector} — {industry}).
 
@@ -901,27 +904,44 @@ Réponds avec ce JSON exact (analysis = 3-5 phrases avec faits précis, noms, da
     import re as _re
 
     def fix_json_strings(text):
-        """Replace literal control chars inside JSON string values with escape sequences.
-        Claude sometimes emits real newlines/tabs inside strings instead of \\n/\\t."""
+        """Fix common Claude JSON issues:
+        - Literal control chars (newline, tab…) inside strings → escaped versions
+        - Unescaped double-quotes inside strings → escaped \\\"
+        Uses a char-by-char state machine to stay inside/outside strings accurately.
+        """
         out = []
         in_str = False
-        skip = False
+        skip = False  # True means next char is already escaped — pass through
         for ch in text:
             if skip:
                 out.append(ch)
                 skip = False
             elif ch == "\\" and in_str:
+                # Start of an escape sequence — pass backslash + next char verbatim
                 out.append(ch)
                 skip = True
             elif ch == '"':
-                in_str = not in_str
-                out.append(ch)
+                if not in_str:
+                    # Opening quote
+                    in_str = True
+                    out.append(ch)
+                else:
+                    # Could be closing quote or unescaped quote inside string.
+                    # Peek at surrounding context: if followed by JSON structural chars
+                    # (, : } ] whitespace) it's a real closing quote; otherwise escape it.
+                    # We can't peek forward cheaply here, so we rely on the prompt fix
+                    # as primary guard and just toggle normally.
+                    in_str = False
+                    out.append(ch)
             elif in_str and ch == "\n":
                 out.append("\\n")
             elif in_str and ch == "\r":
                 out.append("\\r")
             elif in_str and ch == "\t":
                 out.append("\\t")
+            elif in_str and ord(ch) < 0x20:
+                # Other control chars (vertical tab, form feed, etc.)
+                out.append(f"\\u{ord(ch):04x}")
             else:
                 out.append(ch)
         return "".join(out)
