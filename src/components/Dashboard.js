@@ -181,10 +181,10 @@ export default function Dashboard() {
 
   const removeStock = (symbol) => setWatchlist((prev) => prev.filter((s) => s.symbol !== symbol));
 
-  const refreshStock = async (symbol) => {
+  const refreshStock = async (symbol, { force = false } = {}) => {
     setWatchlist((prev) => prev.map((s) => s.symbol === symbol ? { ...s, refreshing: true } : s));
     try {
-      const raw = await fetchAllData(symbol);
+      const raw = await fetchAllData(symbol, { force });
       const processed = processData(raw);
       const tr = thresholds.fairValueTargetReturn ?? 0.10;
       setWatchlist((prev) => prev.map((s) => {
@@ -258,8 +258,9 @@ export default function Dashboard() {
               <button
                 className={`btn-refresh-all ${anyRefreshing ? "loading" : ""}`}
                 onClick={refreshAll}
+                onContextMenu={(e) => { e.preventDefault(); if (!anyRefreshing) { setRefreshingAll(true); Promise.all(watchlist.map(s => refreshStock(s.symbol, { force: true }))).finally(() => setRefreshingAll(false)); } }}
                 disabled={anyRefreshing}
-                title="Actualiser tous les cours et données"
+                title="Actualiser (clic droit = re-télécharger toutes les données historiques)"
               >
                 {refreshingAll ? "Actualisation…" : "↻ Tout actualiser"}
               </button>

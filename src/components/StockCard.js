@@ -384,7 +384,13 @@ export default function StockCard({ stock, thresholds, onRemove, onUpdate, onRef
               <span className="return-label">base/an</span>
             </div>
           )}
-          <button className="btn-refresh" title="Actualiser les données" onClick={(e) => { e.stopPropagation(); onRefresh(s.symbol); }} disabled={s.refreshing}>
+          <button
+            className="btn-refresh"
+            title="Actualiser (clic droit = forcer le re-téléchargement des données historiques)"
+            onClick={(e) => { e.stopPropagation(); onRefresh(s.symbol); }}
+            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onRefresh(s.symbol, { force: true }); }}
+            disabled={s.refreshing}
+          >
             {s.refreshing ? "…" : "↻"}
           </button>
           <button className="btn-remove" onClick={(e) => { e.stopPropagation(); onRemove(s.symbol); }}>✕</button>

@@ -174,12 +174,17 @@ const ChartTooltip = ({ active, payload, label }) => {
   return (
     <div className="dcf2-tooltip">
       <div className="dcf2-tooltip-year">{label}</div>
-      {payload.map((p) => (
-        <div key={p.dataKey} className="dcf2-tooltip-row" style={{ color: p.color }}>
-          <span>{p.name}</span>
-          <span>{fmtM(p.value)}</span>
-        </div>
-      ))}
+      {payload.map((p) => {
+        const formatted = p.dataKey === "ratio"
+          ? (p.value != null ? `${p.value.toFixed(1)}x` : "—")
+          : fmtM(p.value);
+        return (
+          <div key={p.dataKey} className="dcf2-tooltip-row" style={{ color: p.color }}>
+            <span>{p.name}</span>
+            <span>{formatted}</span>
+          </div>
+        );
+      })}
     </div>
   );
 };
@@ -308,8 +313,26 @@ export default function DCFSection({ stock: s, thresholds, onUpdate }) {
     projBars.push({ year: String(currentYear + y), projected: mvNoDecay, withDecay: mvDecay });
   }
 
+  // Current year bridge point (live value, not projected)
+  const currentYearStr = String(currentYear);
+  const currentRatio = (() => {
+    if (ratioByYear[currentYearStr]) return ratioByYear[currentYearStr];
+    // Mirror ValuationSection formula: use raw (non-normalized) value and sharesCurrent
+    const rawVal = metric.key === "fcf" ? s.fcfCurrent : currentVal;
+    const shs = s.sharesCurrent;
+    if (rawVal != null && rawVal > 0 && shs != null && shs > 0 && s.price) {
+      const r = s.price / (rawVal / shs);
+      return r > 0 && r < 500 ? r : null;
+    }
+    return null;
+  })();
+  const lastHistYear = histChron[histChron.length - 1]?.year;
+
   const chartData = [
     ...histChron.map(r => ({ year: r.year, historical: r.value, ratio: ratioByYear[r.year] ?? null })),
+    ...(lastHistYear !== currentYearStr
+      ? [{ year: currentYearStr, historical: currentVal ?? baseValue, ratio: currentRatio }]
+      : []),
     ...projBars.map(p => ({ ...p, ratio: null })),
   ];
 
@@ -324,6 +347,13 @@ export default function DCFSection({ stock: s, thresholds, onUpdate }) {
     return null;
   };
   const hasRatioData = ratioVals.length > 0;
+
+  // Axis domains — both start at 0, scaled to their own data max
+  // This creates the fiscal.ai-style juxtaposition
+  const allBarVals = chartData.flatMap(d => [d.historical, d.projected, d.withDecay]).filter(v => v != null && v > 0);
+  const allRatioValsForDomain = [...ratioVals, currentRatio].filter(v => v != null && v > 0);
+  const metricDomain = allBarVals.length > 0 ? [0, Math.max(...allBarVals) * 1.20] : [0, 'auto'];
+  const ratioDomain  = allRatioValsForDomain.length > 0 ? [0, Math.max(...allRatioValsForDomain) * 1.35] : [0, 'auto'];
 
   /* ── MOS color helpers ─────────────────────────────────────────────────── */
   const fairColor = result
@@ -520,7 +550,7 @@ export default function DCFSection({ stock: s, thresholds, onUpdate }) {
           <div className="dcf2-chart-section">
             <div className="dcf2-chart-header">
               <p className="dcf2-chart-title">
-                {metric.label} — Historique ({histChron[0]?.year}–{currentYear}) &amp; Projection ({currentYear}–{currentYear + years})
+                {metric.label} — Historique ({histChron[0]?.year}–{currentYearStr}) &amp; Projection ({currentYearStr}–{currentYear + years})
               </p>
               <div className="dcf2-chart-toggles">
                 <div className="dcf2-toggle-group">
@@ -550,24 +580,26 @@ export default function DCFSection({ stock: s, thresholds, onUpdate }) {
               </div>
             </div>
 
-            <ResponsiveContainer width="100%" height={240}>
-              <ComposedChart data={chartData} margin={{ top: 4, right: hasRatioData ? 48 : 12, bottom: 0, left: 0 }}>
+            <ResponsiveContainer width="100%" height={260}>
+              <ComposedChart data={chartData} margin={{ top: 8, right: 0, bottom: 0, left: 0 }}>
                 <XAxis dataKey="year" tick={{ fontSize: 11, fill: "var(--text-dim)" }} tickLine={false} axisLine={false} />
                 <YAxis yAxisId="left"
+                  domain={metricDomain}
                   tickFormatter={fmtM}
                   tick={{ fontSize: 11, fill: "var(--text-dim)" }}
                   tickLine={false} axisLine={false} width={55}
                 />
                 {hasRatioData && (
                   <YAxis yAxisId="right" orientation="right"
+                    domain={ratioDomain}
                     tickFormatter={v => `${v.toFixed(0)}x`}
                     tick={{ fontSize: 11, fill: "var(--text-dim)" }}
-                    tickLine={false} axisLine={false} width={36}
+                    tickLine={false} axisLine={false} width={40}
                   />
                 )}
                 <Tooltip content={<ChartTooltip />} />
                 <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
-                <ReferenceLine yAxisId="left" x={String(currentYear)} stroke="var(--border-bright)" strokeDasharray="4 3" />
+                <ReferenceLine yAxisId="left" x={currentYearStr} stroke="var(--border-bright)" strokeDasharray="4 3" />
 
                 {/* Metric reference lines */}
                 {metricStat && statOf(metricVals, metricStat) != null && (
@@ -584,12 +616,14 @@ export default function DCFSection({ stock: s, thresholds, onUpdate }) {
                   />
                 )}
 
-                <Bar yAxisId="left" dataKey="historical" name={`Historique : ${metric.label}`} fill="var(--accent)" opacity={0.75} radius={[2,2,0,0]} />
-                <Bar yAxisId="left" dataKey="projected"  name="Projection (sans décroissance)"  fill="var(--blue)"   opacity={0.55} radius={[2,2,0,0]} />
-                <Bar yAxisId="left" dataKey="withDecay"  name="Projection (avec décroissance)"  fill="var(--green)"  opacity={0.70} radius={[2,2,0,0]} />
+                <Bar yAxisId="left" dataKey="historical" name={`Historique : ${metric.label}`} fill="var(--accent)" opacity={0.80} radius={[3,3,0,0]} />
+                <Bar yAxisId="left" dataKey="projected"  name="Projection (sans décroissance)"  fill="var(--blue)"   opacity={0.50} radius={[3,3,0,0]} />
+                <Bar yAxisId="left" dataKey="withDecay"  name="Projection (avec décroissance)"  fill="var(--green)"  opacity={0.65} radius={[3,3,0,0]} />
                 {hasRatioData && showRatio && (
-                  <Line yAxisId="right" dataKey="ratio" name={`${metric.multLabel} historique`}
-                    stroke="var(--orange)" strokeWidth={2} dot={{ r: 3, fill: "var(--orange)", strokeWidth: 0 }}
+                  <Line yAxisId="right" dataKey="ratio" name={`${metric.multLabel}`}
+                    stroke="#e05252" strokeWidth={2.5}
+                    dot={{ r: 2.5, fill: "#e05252", strokeWidth: 0 }}
+                    activeDot={{ r: 5, fill: "#e05252", strokeWidth: 0 }}
                     connectNulls={false} type="monotone"
                   />
                 )}

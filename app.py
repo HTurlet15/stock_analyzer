@@ -35,6 +35,44 @@ TAVILY_KEY    = os.environ.get("TAVILY_API_KEY", "")
 app = Flask(__name__)
 CORS(app, origins=["http://localhost:3000"])
 
+# ── Cache des données historiques AV (figées pour années < année courante) ────
+CACHE_DIR = os.path.join(os.path.dirname(__file__), "cache")
+os.makedirs(CACHE_DIR, exist_ok=True)
+
+def _cache_path(symbol):
+    return os.path.join(CACHE_DIR, f"{symbol}.json")
+
+def load_av_cache(symbol):
+    """Charge le cache AV pour ce symbole. Retourne {} si absent ou illisible."""
+    try:
+        with open(_cache_path(symbol)) as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def save_av_cache(symbol, income, balance, cashflow):
+    """Persiste les données historiques (années < année courante) dans le cache."""
+    cy = str(datetime.date.today().year)
+    try:
+        data = {
+            "income":        [r for r in income   if r.get("date", "")[:4] < cy],
+            "balance":       [r for r in balance  if r.get("date", "")[:4] < cy],
+            "cashflow":      [r for r in cashflow if r.get("date", "")[:4] < cy],
+            "cached_year":   cy,
+        }
+        with open(_cache_path(symbol), "w") as f:
+            json.dump(data, f)
+    except Exception:
+        pass
+
+def av_cache_valid(cache):
+    """Le cache est valide s'il contient des données ET que l'année de cache
+    est l'année courante (au tournant d'année on re-télécharge pour avoir le
+    nouvel exercice clôturé)."""
+    if not cache.get("income"):
+        return False
+    return cache.get("cached_year") == str(datetime.date.today().year)
+
 
 def clean(val):
     """Convert NaN/Inf/pandas NA to None for JSON serialization."""
@@ -82,9 +120,12 @@ def av_clean(val):
         return None
 
 
+_av_last_error = {}  # global to expose in response for diagnostics
+
 def av_fetch(symbol, function):
     """Fetch one AV endpoint. Returns list of annualReports or []."""
     if not AV_KEY:
+        _av_last_error[function] = "no AV_API_KEY"
         return []
     try:
         r = requests.get(
@@ -93,11 +134,20 @@ def av_fetch(symbol, function):
             timeout=12,
         )
         data = r.json()
-        if "Note" in data or "Information" in data:
-            # Rate limit hit
+        if "Note" in data:
+            _av_last_error[function] = "rate_limit: daily or per-minute limit reached"
             return []
-        return data.get("annualReports", [])
-    except Exception:
+        if "Information" in data:
+            _av_last_error[function] = "rate_limit: daily or per-minute limit reached"
+            return []
+        if "Error Message" in data:
+            _av_last_error[function] = f"error: {data['Error Message'][:80]}"
+            return []
+        reports = data.get("annualReports", [])
+        _av_last_error.pop(function, None)
+        return reports
+    except Exception as e:
+        _av_last_error[function] = str(e)[:80]
         return []
 
 
@@ -136,6 +186,8 @@ def av_balance(symbol):
             "totalStockholdersEquity": equity,
             "totalDebt":               total_debt,
             "netDebt":                 net_debt,
+            # Balance sheet always has shares outstanding — used as fallback for metrics
+            "sharesOutstanding":       av_clean(r.get("commonStockSharesOutstanding")),
         })
     return result
 
@@ -420,20 +472,63 @@ def get_stock(symbol):
         pass
     cashflow.sort(key=lambda x: x["date"], reverse=True)
 
-    # ── Alpha Vantage — primary source; yfinance fills recent gaps ───────────
-    if AV_KEY:
+    # ── Alpha Vantage — cache local d'abord, API seulement si nécessaire ────
+    av_years = 0
+    force_refresh = request.args.get("force", "0") == "1"
+    av_cache = {} if force_refresh else load_av_cache(symbol)
+
+    if AV_KEY and not av_cache_valid(av_cache):
+        # Cache absent ou périmé (nouveau turn d'année) → appel API
         try:
             av_inc = av_income(symbol)
-            time.sleep(0.5)
+            time.sleep(1)
             av_bal = av_balance(symbol)
-            time.sleep(0.5)
+            time.sleep(1)
             av_cf  = av_cashflow(symbol)
-            # AV is primary: its data wins; yfinance fills years AV doesn't cover
+            av_years = len(av_inc)
             income   = merge_data(av_inc,  income)
             balance  = merge_data(av_bal,  balance)
             cashflow = merge_data(av_cf,   cashflow)
+            # Persiste les données historiques pour les prochains appels
+            save_av_cache(symbol, income, balance, cashflow)
         except Exception:
             pass
+    elif av_cache_valid(av_cache):
+        # Cache valide → on fusionne les données cachées avec le yfinance récent
+        av_years = len(av_cache["income"])
+        income   = merge_data(av_cache["income"],   income)
+        balance  = merge_data(av_cache["balance"],  balance)
+        cashflow = merge_data(av_cache["cashflow"], cashflow)
+
+    # ── Fill missing shares from yfinance get_shares_full or NI/EPS inference ──
+    # get_shares_full returns pre-split actual share counts (same historical terms
+    # as AV data) — the split-adjust loop below then normalizes them to current terms.
+    try:
+        shares_full = ticker.get_shares_full(start="2000-01-01")
+        if shares_full is not None and not shares_full.empty:
+            if shares_full.index.tz is not None:
+                shares_full.index = shares_full.index.tz_convert("UTC").tz_localize(None)
+            for entry in income:
+                if entry.get("weightedAverageShsOut") is not None:
+                    continue
+                date_ts = pd.Timestamp(entry["date"])
+                # Use share count at or just before the fiscal year end
+                past_sh = shares_full[shares_full.index <= date_ts]
+                if not past_sh.empty:
+                    entry["weightedAverageShsOut"] = float(past_sh.iloc[-1])
+    except Exception:
+        pass
+
+    # Secondary fallback: infer shares from net_income / eps (same AV report → same split basis)
+    for entry in income:
+        if entry.get("weightedAverageShsOut") is not None:
+            continue
+        eps = entry.get("eps")
+        ni  = entry.get("netIncome")
+        if eps and eps != 0 and ni and abs(ni) > 0:
+            inferred = ni / eps
+            if inferred > 0:
+                entry["weightedAverageShsOut"] = inferred
 
     # ── Split-adjust weightedAverageShsOut ───────────────────────────────────
     # Normalize all historical share counts to current (post-split) terms so that
@@ -445,9 +540,6 @@ def get_stock(symbol):
             splits.index = (splits.index.tz_localize(None)
                             if splits.index.tz is not None else splits.index)
             for entry in income:
-                shs = entry.get("weightedAverageShsOut")
-                if shs is None:
-                    continue
                 date_ts = pd.Timestamp(entry["date"])
                 future = splits[splits.index > date_ts]
                 if future.empty:
@@ -455,22 +547,34 @@ def get_stock(symbol):
                 factor = 1.0
                 for ratio in future:
                     factor *= float(ratio)
-                if factor != 1.0:
-                    entry["weightedAverageShsOut"] = clean(shs * factor)
+                if factor == 1.0:
+                    continue
+                for field in ("weightedAverageShsOut",):
+                    shs = entry.get(field)
+                    if shs is not None:
+                        entry[field] = clean(shs * factor)
     except Exception:
         pass
 
-    # ── Price history (max range to cover AV's 20-year data) ─────────────────
+    # ── Price history (explicit start avoids period="max" monthly cap in yfinance) ─
+    # auto_adjust=True (default): split-adjusted prices match split-adjusted shares.
     price_history = {}
     try:
-        hist = ticker.history(period="max", interval="1mo", auto_adjust=False)
+        hist = ticker.history(start="2000-01-01", interval="1mo")
         if hist is not None and not hist.empty:
-            hist.index = hist.index.tz_localize(None) if hist.index.tz is not None else hist.index
-            for entry in income:
-                date_ts = pd.Timestamp(entry["date"])
-                past = hist[hist.index <= date_ts]
-                if not past.empty:
-                    price_history[entry["date"]] = float(past.iloc[-1]["Close"])
+            # Normalize timezone: convert to UTC first, then strip tz
+            if hist.index.tz is not None:
+                hist.index = hist.index.tz_convert("UTC").tz_localize(None)
+            close_col = "Close" if "Close" in hist.columns else (
+                        "Adj Close" if "Adj Close" in hist.columns else None)
+            if close_col:
+                for entry in income:
+                    date_ts = pd.Timestamp(entry["date"])
+                    past = hist[hist.index <= date_ts]
+                    if not past.empty:
+                        val = past.iloc[-1][close_col]
+                        if pd.notna(val):
+                            price_history[entry["date"]] = float(val)
     except Exception:
         pass
 
@@ -647,6 +751,17 @@ def get_stock(symbol):
         "ratios":        ratios,
         "estimates":     estimates,
         "dividends":     {"historical": dividends_hist},
+        "_dataYears":       len(income),
+        "_avYears":         av_years,
+        "_fromCache":       av_cache_valid(av_cache),
+        "_avErrors":        dict(_av_last_error),
+        "_priceHistYears":  len(price_history),
+        "_priceHistRange":  [min(price_history.keys()), max(price_history.keys())] if price_history else [],
+        "_incomeYears":     [r["date"][:4] for r in income],
+        "_missingPrice":    [r["date"][:4] for r in income if r["date"] not in price_history],
+        "_missingShares":   [r["date"][:4] for r in income
+                            if r.get("weightedAverageShsOut") is None
+                            and get_for_year(balance, r["date"]).get("sharesOutstanding") is None],
         "priceTarget":   price_target,
         "analystRating": analyst_rating,
     })
