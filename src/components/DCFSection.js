@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import {
-  ResponsiveContainer, ComposedChart, Bar,
+  ResponsiveContainer, ComposedChart, Bar, Line,
   XAxis, YAxis, Tooltip, Legend, ReferenceLine,
 } from "recharts";
 import { num, pct, cagr } from "../utils";
@@ -13,55 +13,54 @@ const METRICS = [
     getCurrent:  (s) => s.fcfNormalized ?? s.fcfCurrent,
     getHistory:  (s) => (s.cf  || []).filter(r => r.freeCashFlow     != null).map(r => ({ year: r.date?.slice(0,4), value: r.freeCashFlow })),
     getMultHist: (s) => (s.met || []).filter(r => r.pfcfRatio        != null && r.pfcfRatio > 0 && r.pfcfRatio < 200).map(r => r.pfcfRatio),
-    multLabel: "P/FCF",
+    multLabel: "P/FCF",    multKey: "pfcfRatio",
   },
   {
     key: "ni", label: "Net Income / Earnings",
     getCurrent:  (s) => (s.inc || [])[0]?.netIncome,
     getHistory:  (s) => (s.inc || []).filter(r => r.netIncome        != null).map(r => ({ year: r.date?.slice(0,4), value: r.netIncome })),
     getMultHist: (s) => (s.met || []).filter(r => r.peRatio          != null && r.peRatio  > 0 && r.peRatio  < 150).map(r => r.peRatio),
-    multLabel: "P/E",
+    multLabel: "P/E",      multKey: "peRatio",
   },
   {
     key: "ebit", label: "EBIT",
     getCurrent:  (s) => (s.inc || [])[0]?.operatingIncome,
     getHistory:  (s) => (s.inc || []).filter(r => r.operatingIncome  != null).map(r => ({ year: r.date?.slice(0,4), value: r.operatingIncome })),
     getMultHist: (_s) => [],
-    multLabel: "P/EBIT",
+    multLabel: "P/EBIT",   multKey: "priceToEbit",
   },
   {
     key: "ebitda", label: "EBITDA",
     getCurrent:  (s) => (s.inc || [])[0]?.ebitda,
     getHistory:  (s) => (s.inc || []).filter(r => r.ebitda           != null).map(r => ({ year: r.date?.slice(0,4), value: r.ebitda })),
     getMultHist: (_s) => [],
-    multLabel: "P/EBITDA",
+    multLabel: "P/EBITDA", multKey: "priceToEbitda",
   },
   {
     key: "ocf", label: "Operating Cash Flow",
     getCurrent:  (s) => {
       const r = (s.cf || [])[0] || {};
       if (r.operatingCashFlow != null) return r.operatingCashFlow;
-      // fallback: OCF = FCF − capex (capex stored as negative in yfinance)
       if (r.freeCashFlow != null && r.capitalExpenditure != null) return r.freeCashFlow - r.capitalExpenditure;
       return null;
     },
     getHistory:  (s) => (s.cf  || []).filter(r => r.operatingCashFlow != null).map(r => ({ year: r.date?.slice(0,4), value: r.operatingCashFlow })),
     getMultHist: (_s) => [],
-    multLabel: "P/OCF",
+    multLabel: "P/OCF",    multKey: "priceToOcf",
   },
   {
     key: "oi", label: "Operating Income",
     getCurrent:  (s) => (s.inc || [])[0]?.operatingIncome,
     getHistory:  (s) => (s.inc || []).filter(r => r.operatingIncome  != null).map(r => ({ year: r.date?.slice(0,4), value: r.operatingIncome })),
     getMultHist: (_s) => [],
-    multLabel: "P/Operating Income",
+    multLabel: "P/Op. Income", multKey: "priceToEbit",
   },
   {
     key: "bv", label: "Book Value",
     getCurrent:  (s) => s.equity,
     getHistory:  (s) => (s.bal || []).filter(r => r.totalStockholdersEquity != null).map(r => ({ year: r.date?.slice(0,4), value: r.totalStockholdersEquity })),
-    getMultHist: (s) => (s.met || []).filter(r => r.priceToBookRatio != null && r.priceToBookRatio > 0).map(r => r.priceToBookRatio),
-    multLabel: "P/B",
+    getMultHist: (s) => (s.met || []).filter(r => r.priceToBook != null && r.priceToBook > 0).map(r => r.priceToBook),
+    multLabel: "P/B",      multKey: "priceToBook",
   },
   {
     key: "oe", label: "Owner's Earnings",
@@ -69,8 +68,8 @@ const METRICS = [
     getHistory:  (s) => (s.cf || [])
       .filter(r => r.operatingCashFlow != null && r.depreciationAndAmortization != null)
       .map(r => ({ year: r.date?.slice(0,4), value: r.operatingCashFlow - r.depreciationAndAmortization })),
-    getMultHist: (s) => (s.met || []).filter(r => r.peRatio != null && r.peRatio > 0 && r.peRatio < 150).map(r => r.peRatio),
-    multLabel: "P/OE",
+    getMultHist: (s) => (s.met || []).filter(r => r.priceToOwnerEarnings != null && r.priceToOwnerEarnings > 0 && r.priceToOwnerEarnings < 200).map(r => r.priceToOwnerEarnings),
+    multLabel: "P/OE",     multKey: "priceToOwnerEarnings",
   },
 ];
 
@@ -275,14 +274,30 @@ export default function DCFSection({ stock: s, thresholds, onUpdate }) {
   // eslint-disable-next-line
   }, [result]);
 
+  /* ── Chart stat toggles ──────────────────────────────────────────────── */
+  const [metricStat, setMetricStat] = useState(null); // null | "avg" | "min" | "max"
+  const [ratioStat,  setRatioStat]  = useState(null);
+  const [showRatio,  setShowRatio]  = useState(true);
+
   /* ── Build chart data ─────────────────────────────────────────────────── */
   const currentYear = new Date().getFullYear();
 
   // Historical (oldest → newest), max 10 years
   const histChron = [...histArr].reverse().slice(-10);
 
-  // Projected without decay  (for comparison bar)
-  // Projected with decay (primary)
+  // Ratio (P/Metric) by year from s.met
+  const ratioByYear = useMemo(() => {
+    const map = {};
+    if (metric.multKey) {
+      (s.met || []).forEach(r => {
+        const y = r.date?.slice(0, 4);
+        const v = r[metric.multKey];
+        if (y && v != null && v > 0 && v < 500) map[y] = v;
+      });
+    }
+    return map;
+  }, [metric.multKey, s.met]);
+
   const projBars = [];
   let mvDecay    = baseValue;
   let mvNoDecay  = baseValue;
@@ -290,17 +305,25 @@ export default function DCFSection({ stock: s, thresholds, onUpdate }) {
     const effDecay   = growthRate * Math.pow(1 - growthDecay, y - 1);
     mvDecay   *= (1 + effDecay);
     mvNoDecay *= (1 + growthRate);
-    projBars.push({
-      year:      String(currentYear + y),
-      projected: mvNoDecay,
-      withDecay: mvDecay,
-    });
+    projBars.push({ year: String(currentYear + y), projected: mvNoDecay, withDecay: mvDecay });
   }
 
   const chartData = [
-    ...histChron.map(r => ({ year: r.year, historical: r.value })),
-    ...projBars,
+    ...histChron.map(r => ({ year: r.year, historical: r.value, ratio: ratioByYear[r.year] ?? null })),
+    ...projBars.map(p => ({ ...p, ratio: null })),
   ];
+
+  // Stats for reference lines
+  const metricVals = histChron.map(r => r.value).filter(v => v != null && isFinite(v));
+  const ratioVals  = histChron.map(r => ratioByYear[r.year]).filter(v => v != null && isFinite(v));
+  const statOf = (arr, kind) => {
+    if (!arr.length) return null;
+    if (kind === "avg") return arr.reduce((a, b) => a + b, 0) / arr.length;
+    if (kind === "min") return Math.min(...arr);
+    if (kind === "max") return Math.max(...arr);
+    return null;
+  };
+  const hasRatioData = ratioVals.length > 0;
 
   /* ── MOS color helpers ─────────────────────────────────────────────────── */
   const fairColor = result
@@ -495,25 +518,81 @@ export default function DCFSection({ stock: s, thresholds, onUpdate }) {
 
           {/* Chart — under the KPIs, inside the right column */}
           <div className="dcf2-chart-section">
-            <p className="dcf2-chart-title">
-              {metric.label} — Historique ({histChron[0]?.year}–{currentYear}) &amp; Projection ({currentYear}–{currentYear + years})
-            </p>
-            <ResponsiveContainer width="100%" height={220}>
-              <ComposedChart data={chartData} margin={{ top: 4, right: 12, bottom: 0, left: 0 }}>
+            <div className="dcf2-chart-header">
+              <p className="dcf2-chart-title">
+                {metric.label} — Historique ({histChron[0]?.year}–{currentYear}) &amp; Projection ({currentYear}–{currentYear + years})
+              </p>
+              <div className="dcf2-chart-toggles">
+                <div className="dcf2-toggle-group">
+                  <span className="dcf2-toggle-label">{metric.label}</span>
+                  {["avg", "min", "max"].map(k => (
+                    <button key={k} className={`dcf2-toggle-btn ${metricStat === k ? "active metric" : ""}`}
+                      onClick={() => setMetricStat(p => p === k ? null : k)}>
+                      {k === "avg" ? "Moy" : k === "min" ? "Min" : "Max"}
+                    </button>
+                  ))}
+                </div>
+                {hasRatioData && (
+                  <div className="dcf2-toggle-group">
+                    <span className="dcf2-toggle-label">{metric.multLabel}</span>
+                    <button className={`dcf2-toggle-btn ${showRatio ? "active ratio" : ""}`}
+                      onClick={() => setShowRatio(p => !p)}>
+                      Courbe
+                    </button>
+                    {["avg", "min", "max"].map(k => (
+                      <button key={k} className={`dcf2-toggle-btn ${ratioStat === k ? "active ratio" : ""}`}
+                        onClick={() => setRatioStat(p => p === k ? null : k)}>
+                        {k === "avg" ? "Moy" : k === "min" ? "Min" : "Max"}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <ResponsiveContainer width="100%" height={240}>
+              <ComposedChart data={chartData} margin={{ top: 4, right: hasRatioData ? 48 : 12, bottom: 0, left: 0 }}>
                 <XAxis dataKey="year" tick={{ fontSize: 11, fill: "var(--text-dim)" }} tickLine={false} axisLine={false} />
-                <YAxis
+                <YAxis yAxisId="left"
                   tickFormatter={fmtM}
                   tick={{ fontSize: 11, fill: "var(--text-dim)" }}
-                  tickLine={false}
-                  axisLine={false}
-                  width={55}
+                  tickLine={false} axisLine={false} width={55}
                 />
+                {hasRatioData && (
+                  <YAxis yAxisId="right" orientation="right"
+                    tickFormatter={v => `${v.toFixed(0)}x`}
+                    tick={{ fontSize: 11, fill: "var(--text-dim)" }}
+                    tickLine={false} axisLine={false} width={36}
+                  />
+                )}
                 <Tooltip content={<ChartTooltip />} />
                 <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
-                <ReferenceLine x={String(currentYear)} stroke="var(--border-bright)" strokeDasharray="4 3" />
-                <Bar dataKey="historical" name={`Historique : ${metric.label}`} fill="var(--accent)" opacity={0.75} radius={[2,2,0,0]} />
-                <Bar dataKey="projected"  name="Projection (sans décroissance)"  fill="var(--blue)"   opacity={0.55} radius={[2,2,0,0]} />
-                <Bar dataKey="withDecay"  name="Projection (avec décroissance)"  fill="var(--green)"  opacity={0.70} radius={[2,2,0,0]} />
+                <ReferenceLine yAxisId="left" x={String(currentYear)} stroke="var(--border-bright)" strokeDasharray="4 3" />
+
+                {/* Metric reference lines */}
+                {metricStat && statOf(metricVals, metricStat) != null && (
+                  <ReferenceLine yAxisId="left" y={statOf(metricVals, metricStat)}
+                    stroke="var(--accent)" strokeDasharray="4 2" strokeWidth={1.5}
+                    label={{ value: `${metricStat === "avg" ? "Moy" : metricStat === "min" ? "Min" : "Max"} ${fmtM(statOf(metricVals, metricStat))}`, position: "insideTopLeft", fontSize: 10, fill: "var(--accent)" }}
+                  />
+                )}
+                {/* Ratio reference lines */}
+                {ratioStat && hasRatioData && statOf(ratioVals, ratioStat) != null && (
+                  <ReferenceLine yAxisId="right" y={statOf(ratioVals, ratioStat)}
+                    stroke="var(--orange)" strokeDasharray="4 2" strokeWidth={1.5}
+                    label={{ value: `${ratioStat === "avg" ? "Moy" : ratioStat === "min" ? "Min" : "Max"} ${statOf(ratioVals, ratioStat).toFixed(1)}x`, position: "insideTopRight", fontSize: 10, fill: "var(--orange)" }}
+                  />
+                )}
+
+                <Bar yAxisId="left" dataKey="historical" name={`Historique : ${metric.label}`} fill="var(--accent)" opacity={0.75} radius={[2,2,0,0]} />
+                <Bar yAxisId="left" dataKey="projected"  name="Projection (sans décroissance)"  fill="var(--blue)"   opacity={0.55} radius={[2,2,0,0]} />
+                <Bar yAxisId="left" dataKey="withDecay"  name="Projection (avec décroissance)"  fill="var(--green)"  opacity={0.70} radius={[2,2,0,0]} />
+                {hasRatioData && showRatio && (
+                  <Line yAxisId="right" dataKey="ratio" name={`${metric.multLabel} historique`}
+                    stroke="var(--orange)" strokeWidth={2} dot={{ r: 3, fill: "var(--orange)", strokeWidth: 0 }}
+                    connectNulls={false} type="monotone"
+                  />
+                )}
               </ComposedChart>
             </ResponsiveContainer>
           </div>

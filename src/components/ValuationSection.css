@@ -57,6 +57,10 @@
 .vt-year.vt-current { color: var(--text); font-weight: 700; }
 .vt-data.vt-current { font-weight: 700; }
 
+/* Historical average column */
+.vt-year.vt-avg { color: var(--text-dim); font-style: italic; }
+.vt-data.vt-avg { color: var(--text-dim); font-style: italic; }
+
 /* ── Inline chart ──────────────────────────────────────────────────────────── */
 .vt-chart-row td { padding: 0; border-bottom: 1px solid var(--border); }
 .vt-chart-cell { background: var(--bg-card); }

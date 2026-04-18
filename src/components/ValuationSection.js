@@ -287,6 +287,7 @@ export default function ValuationSection({ stock, thresholds: t }) {
                 <th className="vt-label" />
                 {YEARS.map(y => <th key={y} className="vt-year">{y}</th>)}
                 <th className="vt-year vt-current">{currentYear} ★</th>
+                <th className="vt-year vt-avg">Moy. hist.</th>
               </tr>
             </thead>
             <tbody>
@@ -294,7 +295,11 @@ export default function ValuationSection({ stock, thresholds: t }) {
                 const vals = met.map(r => r[row.key]);
                 const curVal = currentValues[row.key];
                 const isExpanded = expandedRow === row.key;
-                const totalCols = YEARS.length + 2; // label + years + current
+                const totalCols = YEARS.length + 3; // label + years + current + avg
+                const validVals = vals.filter(v => v != null && isFinite(v));
+                const avgVal = validVals.length > 0
+                  ? validVals.reduce((a, b) => a + b, 0) / validVals.length
+                  : null;
                 return [
                   <tr
                     key={row.key}
@@ -311,6 +316,9 @@ export default function ValuationSection({ stock, thresholds: t }) {
                     ))}
                     <td className={`vt-data vt-current ${row.colorFn(curVal)}`}>
                       {row.fmt(curVal)}
+                    </td>
+                    <td className="vt-data vt-avg">
+                      {row.fmt(avgVal)}
                     </td>
                   </tr>,
                   isExpanded && (
