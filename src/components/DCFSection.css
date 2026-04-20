@@ -41,6 +41,13 @@
 .dcf2-input      { background: transparent; border: none; outline: none; font-family: 'Inter', sans-serif; font-size: 13px; color: var(--text); width: 72px; text-align: right; font-variant-numeric: tabular-nums; }
 .dcf2-unit       { font-size: 12px; color: var(--text-dim); }
 .dcf2-hint       { font-size: 11px; color: var(--text-dim); line-height: 1.5; margin-top: 1px; }
+.dcf2-autofill-btn {
+  padding: 5px 10px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--bg-elevated); color: var(--text-muted); font-size: 11px;
+  font-family: 'Inter', sans-serif; font-weight: 600; cursor: pointer; white-space: nowrap;
+  transition: all 0.12s;
+}
+.dcf2-autofill-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
 
 /* ── Right: results ────────────────────────────────────────────────────────── */
 .dcf2-results { display: flex; flex-direction: column; gap: 16px; }

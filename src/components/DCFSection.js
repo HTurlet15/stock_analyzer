@@ -10,7 +10,7 @@ import "./DCFSection.css";
 const METRICS = [
   {
     key: "fcf", label: "Free Cash Flow",
-    getCurrent:  (s) => s.fcfNormalized ?? s.fcfCurrent,
+    getCurrent:  (s) => s.fcfCurrent,
     getHistory:  (s) => (s.cf  || []).filter(r => r.freeCashFlow     != null).map(r => ({ year: r.date?.slice(0,4), value: r.freeCashFlow })),
     getMultHist: (s) => (s.met || []).filter(r => r.pfcfRatio        != null && r.pfcfRatio > 0 && r.pfcfRatio < 200).map(r => r.pfcfRatio),
     multLabel: "P/FCF",    multKey: "pfcfRatio",
@@ -26,14 +26,14 @@ const METRICS = [
     key: "ebit", label: "EBIT",
     getCurrent:  (s) => (s.inc || [])[0]?.operatingIncome,
     getHistory:  (s) => (s.inc || []).filter(r => r.operatingIncome  != null).map(r => ({ year: r.date?.slice(0,4), value: r.operatingIncome })),
-    getMultHist: (_s) => [],
+    getMultHist: (s) => (s.met || []).filter(r => r.priceToEbit    != null && r.priceToEbit    > 0 && r.priceToEbit    < 500).map(r => r.priceToEbit),
     multLabel: "P/EBIT",   multKey: "priceToEbit",
   },
   {
     key: "ebitda", label: "EBITDA",
     getCurrent:  (s) => (s.inc || [])[0]?.ebitda,
     getHistory:  (s) => (s.inc || []).filter(r => r.ebitda           != null).map(r => ({ year: r.date?.slice(0,4), value: r.ebitda })),
-    getMultHist: (_s) => [],
+    getMultHist: (s) => (s.met || []).filter(r => r.priceToEbitda  != null && r.priceToEbitda  > 0 && r.priceToEbitda  < 500).map(r => r.priceToEbitda),
     multLabel: "P/EBITDA", multKey: "priceToEbitda",
   },
   {
@@ -45,14 +45,14 @@ const METRICS = [
       return null;
     },
     getHistory:  (s) => (s.cf  || []).filter(r => r.operatingCashFlow != null).map(r => ({ year: r.date?.slice(0,4), value: r.operatingCashFlow })),
-    getMultHist: (_s) => [],
+    getMultHist: (s) => (s.met || []).filter(r => r.priceToOcf     != null && r.priceToOcf     > 0 && r.priceToOcf     < 500).map(r => r.priceToOcf),
     multLabel: "P/OCF",    multKey: "priceToOcf",
   },
   {
     key: "oi", label: "Operating Income",
     getCurrent:  (s) => (s.inc || [])[0]?.operatingIncome,
     getHistory:  (s) => (s.inc || []).filter(r => r.operatingIncome  != null).map(r => ({ year: r.date?.slice(0,4), value: r.operatingIncome })),
-    getMultHist: (_s) => [],
+    getMultHist: (s) => (s.met || []).filter(r => r.priceToEbit    != null && r.priceToEbit    > 0 && r.priceToEbit    < 500).map(r => r.priceToEbit),
     multLabel: "P/Op. Income", multKey: "priceToEbit",
   },
   {
@@ -101,9 +101,10 @@ const shareCAGR = (incArr, years) => {
 const fmtM = (v) => {
   if (v == null) return "—";
   const abs = Math.abs(v);
-  if (abs >= 1e6) return `${(v / 1e6).toFixed(2)}T`;
-  if (abs >= 1e3) return `${(v / 1e3).toFixed(2)}B`;
-  return `${v.toFixed(2)}M`;
+  if (abs >= 1e12) return `${(v / 1e12).toFixed(2)}T`;
+  if (abs >= 1e9)  return `${(v / 1e9).toFixed(2)}B`;
+  if (abs >= 1e6)  return `${(v / 1e6).toFixed(2)}M`;
+  return `${v.toFixed(0)}`;
 };
 
 /* ─── DCF engine ──────────────────────────────────────────────────────────── */
@@ -191,7 +192,7 @@ const ChartTooltip = ({ active, payload, label }) => {
 
 /* ─── Main component ──────────────────────────────────────────────────────── */
 export default function DCFSection({ stock: s, thresholds, onUpdate }) {
-  const effectiveShares = s.impliedShares ?? s.sharesCurrent; // in millions (FMP already in millions)
+  const effectiveShares = s.sharesCurrent;
 
   /* ── Restore saved params or compute defaults ─────────────────────────── */
   const saved = s.dcfAssumptions?.metric !== undefined ? s.dcfAssumptions : null;
@@ -422,20 +423,38 @@ export default function DCFSection({ stock: s, thresholds, onUpdate }) {
           {/* Horizon */}
           <div className="dcf2-input-row">
             <label className="dcf2-label">Horizon de projection</label>
-            <div className="dcf2-input-wrap">
-              <input
-                className="dcf2-input"
-                type="number"
-                min="1"
-                max="30"
-                step="1"
-                value={years}
-                onChange={(e) => {
-                  const v = Math.max(1, Math.min(30, parseInt(e.target.value) || 1));
-                  setYears(v);
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div className="dcf2-input-wrap">
+                <input
+                  className="dcf2-input"
+                  type="number"
+                  min="1"
+                  max="30"
+                  step="1"
+                  value={years}
+                  onChange={(e) => {
+                    const v = Math.max(1, Math.min(30, parseInt(e.target.value) || 1));
+                    setYears(v);
+                  }}
+                />
+                <span className="dcf2-unit">ans</span>
+              </div>
+              <button
+                className="dcf2-autofill-btn"
+                title={`Autofill tous les champs avec les moyennes sur ${years} ans`}
+                onClick={() => {
+                  const g  = histCAGR(metric.getHistory(s), years);
+                  const mu = avgMultiple(metric.getMultHist(s), years);
+                  const sc = shareCAGR(s.inc, years);
+                  const cv = metric.getCurrent(s);
+                  if (g  != null) setGrowthRate(g);
+                  if (mu != null) setMultiple(mu);
+                  if (sc != null) setShareChange(sc);
+                  if (cv != null) setBaseValue(cv);
                 }}
-              />
-              <span className="dcf2-unit">ans</span>
+              >
+                Auto {years}a
+              </button>
             </div>
             <p className="dcf2-hint">Auto-rempli sur {years} ans de données</p>
           </div>
@@ -490,11 +509,11 @@ export default function DCFSection({ stock: s, thresholds, onUpdate }) {
           />
 
           <NumInput
-            label={`Point de départ — ${metric.label} (millions)`}
-            value={baseValue}
-            onChange={setBaseValue}
+            label={`Point de départ — ${metric.label}`}
+            value={baseValue / 1e9}
+            onChange={v => setBaseValue(v * 1e9)}
             isPercent={false}
-            unit="M"
+            unit="B"
             hint={currentVal != null ? `Valeur ${metric.label} la plus récente : ${fmtM(currentVal)}` : null}
           />
         </div>

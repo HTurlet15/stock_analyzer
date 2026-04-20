@@ -530,10 +530,12 @@ def get_stock(symbol):
             if inferred > 0:
                 entry["weightedAverageShsOut"] = inferred
 
-    # ── Split-adjust weightedAverageShsOut ───────────────────────────────────
-    # Normalize all historical share counts to current (post-split) terms so that
-    # CAGR reflects real buyback/dilution, not split artifacts.
+    # ── Split-adjust share counts ─────────────────────────────────────────────
     # cumulative_factor(date) = product of all split ratios that occurred AFTER that date.
+    # Shares × factor so that CAGR reflects real buyback/dilution, not split artifacts.
+    # hist_price is already split-adjusted by yfinance (auto_adjust=True).
+    # EPS is NOT adjusted here — pe_ratio uses net_income/shares instead (see below),
+    # which is always consistent regardless of EPS split-adjustment status in the source data.
     try:
         splits = ticker.splits
         if splits is not None and not splits.empty:
@@ -549,10 +551,9 @@ def get_stock(symbol):
                     factor *= float(ratio)
                 if factor == 1.0:
                     continue
-                for field in ("weightedAverageShsOut",):
-                    shs = entry.get(field)
-                    if shs is not None:
-                        entry[field] = clean(shs * factor)
+                shs = entry.get("weightedAverageShsOut")
+                if shs is not None:
+                    entry["weightedAverageShsOut"] = clean(shs * factor)
     except Exception:
         pass
 
@@ -588,7 +589,6 @@ def get_stock(symbol):
         equity     = bal_row.get("totalStockholdersEquity")
         total_debt = bal_row.get("totalDebt")
         net_debt   = bal_row.get("netDebt")
-        eps_val    = item.get("eps")
         revenue    = item.get("revenue")
         ebitda     = item.get("ebitda")
         shares     = item.get("weightedAverageShsOut")
@@ -601,7 +601,10 @@ def get_stock(symbol):
             invested = equity + net_debt
             roic = clean(net_income / invested) if invested > 0 else None
 
-        pe_ratio       = clean(hist_price / eps_val)               if hist_price and eps_val  and eps_val  > 0                            else None
+        # Use net_income/shares (same pattern as P/FCF, P/Book) so P/E is always
+        # split-consistent: net_income is a total (unaffected by splits), shares is
+        # split-adjusted above. Avoids ambiguity of whether eps field is already adjusted.
+        pe_ratio       = clean(hist_price / (net_income / shares))  if hist_price and net_income and net_income > 0 and shares and shares > 0 else None
         price_to_sales = clean(hist_price / (revenue / shares))    if hist_price and revenue  and shares   and shares > 0                 else None
         price_to_book  = clean(hist_price / (equity  / shares))    if hist_price and equity   and equity   > 0 and shares and shares > 0  else None
         mc             = clean(hist_price * shares)                 if hist_price and shares                                               else None
