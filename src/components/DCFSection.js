@@ -195,7 +195,8 @@ export default function DCFSection({ stock: s, thresholds, onUpdate }) {
   const effectiveShares = s.sharesCurrent;
 
   /* ── Restore saved params or compute defaults ─────────────────────────── */
-  const saved = s.dcfAssumptions?.metric !== undefined ? s.dcfAssumptions : null;
+  // dcfParams is our dedicated key — dcfAssumptions is the Dashboard's bear/base/bull format
+  const saved = s.dcfParams ?? (s.dcfAssumptions?.metric !== undefined ? s.dcfAssumptions : null);
   const initMetricKey  = saved?.metric ?? "fcf";
   const initYears      = saved?.years  ?? 5;
   const initMetric     = METRICS.find(m => m.key === initMetricKey);
@@ -275,7 +276,7 @@ export default function DCFSection({ stock: s, thresholds, onUpdate }) {
       assumptions: {
         base: { fairValue: result.fairValue, marginOfSafety: result.marginOfSafety, returnWithDivs: result.returnWithDivs },
       },
-      dcfAssumptions: { metric: metricKey, growthRate, growthDecay, multiple, years, targetReturn, divGrowth, shareChange, baseValue },
+      dcfParams: { metric: metricKey, growthRate, growthDecay, multiple, years, targetReturn, divGrowth, shareChange, baseValue },
     });
   // eslint-disable-next-line
   }, [result]);
