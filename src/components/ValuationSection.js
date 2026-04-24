@@ -165,10 +165,11 @@ export default function ValuationSection({ stock, thresholds: t }) {
   const met = allMet.slice(-LIMIT);
   const YEARS = met.map(r => r.date.slice(0, 4));
 
-  // Current-year values (live from quote)
+  // Current-year values — use s.inc / s.cf (updated by processData on every refresh)
+  // rather than s.raw.income / s.raw.cashflow which may lag after partial updates.
   const currentYear = new Date().getFullYear().toString();
-  const latestIncome = raw.income?.[0] || {};
-  const latestCf     = raw.cashflow?.[0] || {};
+  const latestIncome = (s.inc || [])[0] || {};
+  const latestCf     = (s.cf  || [])[0] || {};
   const ebitdaCurrent    = latestIncome.ebitda;
   const ebitCurrent      = latestIncome.operatingIncome;
   const ocfCurrent       = latestCf.operatingCashFlow;
