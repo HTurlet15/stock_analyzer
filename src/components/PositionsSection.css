@@ -2,7 +2,12 @@
 
 /* ── Form ────────────────────────────────────────────────────────────────── */
 .pos-form-card { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 10px; padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; }
+.pos-form-header { display: flex; align-items: center; justify-content: space-between; }
 .pos-form-title { font-size: 12px; font-weight: 600; color: var(--text); }
+.pos-type-toggle { display: flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+.pos-type-btn { padding: 5px 14px; font-size: 12px; font-family: 'Inter', sans-serif; font-weight: 500; border: none; background: transparent; color: var(--text-dim); cursor: pointer; transition: all 0.12s; }
+.pos-type-btn.active-buy  { background: var(--green-dim);  color: var(--green);  font-weight: 700; }
+.pos-type-btn.active-sell { background: var(--red-dim);    color: var(--red);    font-weight: 700; }
 .pos-form-row { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
 .pos-label { display: flex; flex-direction: column; gap: 5px; font-size: 11px; color: var(--text-muted); }
 .pos-input { padding: 7px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text); font-family: 'Inter', sans-serif; font-size: 12px; width: 140px; outline: none; transition: border-color 0.15s; }
@@ -10,6 +15,7 @@
 .pos-input[type="date"] { width: 150px; }
 .pos-add-btn { padding: 8px 18px; border-radius: 7px; border: none; background: var(--accent); color: #fff; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; align-self: flex-end; }
 .pos-add-btn:hover { opacity: 0.88; }
+.pos-add-btn.sell { background: var(--red); }
 .pos-error { font-size: 11px; color: var(--red); }
 .pos-empty { font-size: 13px; color: var(--text-dim); text-align: center; padding: 24px 0; }
 

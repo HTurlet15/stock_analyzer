@@ -11,24 +11,50 @@ const money = (v, cur = "$") => {
 
 export function computePositionStats(positions, price, dividendPerShare) {
   if (!positions?.length) return null;
-  const totalShares = positions.reduce((s, p) => s + p.quantity, 0);
-  const costBasis   = positions.reduce((s, p) => s + p.quantity * p.pricePerShare, 0);
-  const avgCost     = costBasis / totalShares;
-  const currentValue    = price != null ? totalShares * price : null;
-  const capitalGain     = currentValue != null ? currentValue - costBasis : null;
-  const capitalGainPct  = capitalGain  != null ? capitalGain / costBasis  : null;
-  const annualDividend  = dividendPerShare != null ? totalShares * dividendPerShare : null;
-  const yieldOnCost     = annualDividend   != null ? annualDividend / costBasis     : null;
-  return { totalShares, costBasis, avgCost, currentValue, capitalGain, capitalGainPct, annualDividend, yieldOnCost };
+
+  // Process chronologically with average cost method
+  const sorted = [...positions].sort((a, b) => new Date(a.date) - new Date(b.date));
+  let totalShares = 0;
+  let totalCost   = 0;
+  let realizedGain = 0;
+
+  for (const p of sorted) {
+    if (p.type === "vente") {
+      const avgCost = totalShares > 0 ? totalCost / totalShares : 0;
+      realizedGain += p.quantity * (p.pricePerShare - avgCost);
+      totalShares  -= p.quantity;
+      totalCost    -= p.quantity * avgCost;
+    } else {
+      totalShares += p.quantity;
+      totalCost   += p.quantity * p.pricePerShare;
+    }
+  }
+
+  totalShares = Math.max(0, totalShares);
+  totalCost   = Math.max(0, totalCost);
+
+  const avgCost         = totalShares > 0 ? totalCost / totalShares : null;
+  const currentValue    = price != null && totalShares > 0 ? totalShares * price : null;
+  const unrealizedGain  = currentValue != null ? currentValue - totalCost : null;
+  const unrealizedPct   = unrealizedGain != null && totalCost > 0 ? unrealizedGain / totalCost : null;
+  const annualDividend  = dividendPerShare != null && totalShares > 0 ? totalShares * dividendPerShare : null;
+  const yieldOnCost     = annualDividend != null && totalCost > 0 ? annualDividend / totalCost : null;
+
+  return {
+    totalShares, costBasis: totalCost, avgCost,
+    currentValue, capitalGain: unrealizedGain, capitalGainPct: unrealizedPct,
+    realizedGain, annualDividend, yieldOnCost,
+  };
 }
 
 export default function PositionsSection({ stock, onUpdate }) {
   const positions = stock.positions || [];
-  const cur = stock.currency === "EUR" ? "€" : "$";
+  const cur  = stock.currency === "EUR" ? "€" : "$";
   const price = stock.price;
   const divPS = stock.dividendPerShare;
 
-  const [form, setForm] = useState({ date: new Date().toISOString().slice(0, 10), quantity: "", pricePerShare: "" });
+  const [type, setType]       = useState("achat");
+  const [form, setForm]       = useState({ date: new Date().toISOString().slice(0, 10), quantity: "", pricePerShare: "" });
   const [formError, setFormError] = useState("");
 
   const stats = computePositionStats(positions, price, divPS);
@@ -39,7 +65,7 @@ export default function PositionsSection({ stock, onUpdate }) {
     if (!q || q <= 0 || !p || p <= 0) { setFormError("Quantité et prix doivent être positifs."); return; }
     if (!form.date) { setFormError("Date requise."); return; }
     setFormError("");
-    const updated = [...positions, { id: Date.now(), date: form.date, quantity: q, pricePerShare: p }]
+    const updated = [...positions, { id: Date.now(), date: form.date, quantity: q, pricePerShare: p, type }]
       .sort((a, b) => new Date(a.date) - new Date(b.date));
     onUpdate(stock.symbol, { positions: updated });
     setForm(prev => ({ ...prev, quantity: "", pricePerShare: "" }));
@@ -56,7 +82,19 @@ export default function PositionsSection({ stock, onUpdate }) {
 
       {/* ── Add position form ──────────────────────────────────────────────── */}
       <div className="pos-form-card">
-        <p className="pos-form-title">Ajouter un achat</p>
+        <div className="pos-form-header">
+          <p className="pos-form-title">Ajouter une transaction</p>
+          <div className="pos-type-toggle">
+            <button
+              className={`pos-type-btn${type === "achat" ? " active-buy" : ""}`}
+              onClick={() => setType("achat")}
+            >Achat</button>
+            <button
+              className={`pos-type-btn${type === "vente" ? " active-sell" : ""}`}
+              onClick={() => setType("vente")}
+            >Vente</button>
+          </div>
+        </div>
         <div className="pos-form-row">
           <label className="pos-label">
             Date
@@ -69,17 +107,19 @@ export default function PositionsSection({ stock, onUpdate }) {
               value={form.quantity} onChange={e => setForm(p => ({ ...p, quantity: e.target.value }))} />
           </label>
           <label className="pos-label">
-            Prix d'achat ({cur})
+            Prix {type === "achat" ? "d'achat" : "de vente"} ({cur})
             <input type="number" className="pos-input" placeholder="ex: 185.50" min="0" step="0.01"
               value={form.pricePerShare} onChange={e => setForm(p => ({ ...p, pricePerShare: e.target.value }))} />
           </label>
-          <button className="pos-add-btn" onClick={addPosition}>Ajouter</button>
+          <button className={`pos-add-btn${type === "vente" ? " sell" : ""}`} onClick={addPosition}>
+            {type === "achat" ? "Ajouter achat" : "Ajouter vente"}
+          </button>
         </div>
         {formError && <p className="pos-error">{formError}</p>}
       </div>
 
       {positions.length === 0 ? (
-        <p className="pos-empty">Aucun achat enregistré. Ajoute ta première position ci-dessus.</p>
+        <p className="pos-empty">Aucune transaction enregistrée. Ajoute ta première position ci-dessus.</p>
       ) : (
         <>
           {/* ── Stats summary ──────────────────────────────────────────────── */}
@@ -91,10 +131,10 @@ export default function PositionsSection({ stock, onUpdate }) {
               </div>
               <div className="pos-stat">
                 <span className="pos-stat-label">Prix moyen d'achat</span>
-                <span className="pos-stat-value">{cur}{num(stats.avgCost, 2)}</span>
+                <span className="pos-stat-value">{stats.avgCost != null ? `${cur}${num(stats.avgCost, 2)}` : "—"}</span>
               </div>
               <div className="pos-stat">
-                <span className="pos-stat-label">Coût total</span>
+                <span className="pos-stat-label">Coût total (restant)</span>
                 <span className="pos-stat-value">{money(stats.costBasis, cur)}</span>
               </div>
               <div className="pos-stat">
@@ -102,12 +142,22 @@ export default function PositionsSection({ stock, onUpdate }) {
                 <span className="pos-stat-value">{stats.currentValue != null ? money(stats.currentValue, cur) : "—"}</span>
               </div>
               <div className="pos-stat">
-                <span className="pos-stat-label">Plus-value</span>
+                <span className="pos-stat-label">Plus-value non réalisée</span>
                 <span className={`pos-stat-value ${gainColor(stats.capitalGain)}`}>
-                  {stats.capitalGain != null ? `${stats.capitalGain >= 0 ? "+" : ""}${money(stats.capitalGain, cur)}` : "—"}
+                  {stats.capitalGain != null
+                    ? `${stats.capitalGain >= 0 ? "+" : ""}${money(stats.capitalGain, cur)}`
+                    : "—"}
                   {stats.capitalGainPct != null && (
                     <span className="pos-stat-sub"> ({stats.capitalGainPct >= 0 ? "+" : ""}{pct(stats.capitalGainPct)})</span>
                   )}
+                </span>
+              </div>
+              <div className="pos-stat">
+                <span className="pos-stat-label">Plus-value réalisée</span>
+                <span className={`pos-stat-value ${gainColor(stats.realizedGain)}`}>
+                  {stats.realizedGain !== 0
+                    ? `${stats.realizedGain >= 0 ? "+" : ""}${money(stats.realizedGain, cur)}`
+                    : "—"}
                 </span>
               </div>
               <div className="pos-stat">
@@ -122,39 +172,40 @@ export default function PositionsSection({ stock, onUpdate }) {
                   {stats.yieldOnCost != null ? pct(stats.yieldOnCost) : "—"}
                 </span>
               </div>
-              <div className="pos-stat">
-                <span className="pos-stat-label">Dividende / action</span>
-                <span className="pos-stat-value">{divPS != null ? `${cur}${num(divPS, 2)}` : "—"}</span>
-              </div>
             </div>
           )}
 
-          {/* ── Purchase history ───────────────────────────────────────────── */}
+          {/* ── Transaction history ─────────────────────────────────────────── */}
           <div className="pos-history">
-            <p className="pos-history-title">Historique des achats</p>
+            <p className="pos-history-title">Historique des transactions</p>
             <table className="pos-table">
               <thead>
                 <tr>
                   <th>Date</th>
+                  <th>Type</th>
                   <th>Quantité</th>
-                  <th>Prix d'achat</th>
-                  <th>Coût total</th>
+                  <th>Prix</th>
+                  <th>Montant</th>
                   <th>P&L / action</th>
                   <th></th>
                 </tr>
               </thead>
               <tbody>
                 {[...positions].reverse().map(p => {
+                  const isSale = p.type === "vente";
                   const pl = price != null ? price - p.pricePerShare : null;
                   const plPct = pl != null ? pl / p.pricePerShare : null;
                   return (
                     <tr key={p.id}>
                       <td>{p.date}</td>
-                      <td>{num(p.quantity, 2)}</td>
+                      <td className={isSale ? "red" : "green"}>{isSale ? "Vente" : "Achat"}</td>
+                      <td>{isSale ? "-" : "+"}{num(p.quantity, 2)}</td>
                       <td>{cur}{num(p.pricePerShare, 2)}</td>
-                      <td>{money(p.quantity * p.pricePerShare, cur)}</td>
-                      <td className={gainColor(pl)}>
-                        {pl != null ? `${pl >= 0 ? "+" : ""}${cur}${num(pl, 2)} (${plPct >= 0 ? "+" : ""}${pct(plPct)})` : "—"}
+                      <td>{money(p.quantity * p.pricePerShare * (isSale ? 1 : -1), cur)}</td>
+                      <td className={isSale ? "" : gainColor(pl)}>
+                        {isSale ? "—" : pl != null
+                          ? `${pl >= 0 ? "+" : ""}${cur}${num(pl, 2)} (${plPct >= 0 ? "+" : ""}${pct(plPct)})`
+                          : "—"}
                       </td>
                       <td>
                         <button className="pos-delete-btn" onClick={() => removePosition(p.id)} title="Supprimer">✕</button>
