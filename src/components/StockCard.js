@@ -47,25 +47,26 @@ const FinChart = ({ years, rawValues, fmt }) => {
 
 // ── Financial Table ──────────────────────────────────────────────────────────
 
-const FinancialTable = ({ raw, period }) => {
+const FinancialTable = ({ income: rawInc, balance: rawBal, cashflow: rawCf, metrics: rawMet, ratios: rawRat, period }) => {
   const [expandedRow, setExpandedRow] = useState(null);
 
   const LIMIT = period === "max" ? 20 : period;
-  const inc = [...(raw.income   || [])].slice(0, LIMIT).reverse();
-  const bal = [...(raw.balance  || [])].slice(0, LIMIT).reverse();
-  const cf  = [...(raw.cashflow || [])].slice(0, LIMIT).reverse();
-  const met = [...(raw.metrics  || [])].slice(0, LIMIT).reverse();
-  const rat = [...(raw.ratios   || [])].slice(0, LIMIT).reverse();
+  // rawInc is already sorted newest-first by processData
+  const inc = [...rawInc].slice(0, LIMIT).reverse();
+  const bal = [...rawBal].slice(0, LIMIT).reverse();
+  const cf  = [...rawCf].slice(0, LIMIT).reverse();
+  const met = [...rawMet].slice(0, LIMIT).reverse();
+  const rat = [...rawRat].slice(0, LIMIT).reverse();
 
   const YEARS = inc.map(r => r.date.slice(0, 4));
   if (!YEARS.length) return <p className="empty-table">Données indisponibles.</p>;
 
-  // Latest data column (most recent entry from each source, regardless of period)
-  const curInc = (raw.income   || [])[0] || {};
-  const curBal = (raw.balance  || [])[0] || {};
-  const curCF  = (raw.cashflow || [])[0] || {};
-  const curMet = (raw.metrics  || [])[0] || {};
-  const curRat = (raw.ratios   || [])[0] || {};
+  // Latest data column (most recent entry, regardless of period)
+  const curInc = rawInc[0] || {};
+  const curBal = rawBal[0] || {};
+  const curCF  = rawCf[0]  || {};
+  const curMet = rawMet[0] || {};
+  const curRat = rawRat[0] || {};
   const latestYear = curInc.date?.slice(0, 4) || new Date().getFullYear().toString();
 
   const byYear = (arr, year) => arr.find(r => r.date?.startsWith(year)) || {};
@@ -328,10 +329,11 @@ export default function StockCard({ stock, thresholds, onRemove, onUpdate, onRef
   const healthScore = thresholds ? computeScore(computeMetricsForPeriod(s, 5), thresholds) : 0;
   const healthColor = healthScore >= 70 ? "green" : healthScore >= 40 ? "orange" : "red";
 
-  // Key check details
-  const latestInc = raw.income?.[0]  || {};
-  const latestBal = raw.balance?.[0] || {};
-  const latestCF  = raw.cashflow?.[0] || {};
+  // Key check details — use processData arrays (s.inc/s.cf/s.bal) which are always
+  // refreshed, rather than s.raw which can lag behind after partial state updates.
+  const latestInc = (s.inc || [])[0] || {};
+  const latestBal = (s.bal || [])[0] || {};
+  const latestCF  = (s.cf  || [])[0] || {};
 
   const ni   = latestInc.netIncome;
   const nd   = latestBal.netDebt;
@@ -425,7 +427,14 @@ export default function StockCard({ stock, thresholds, onRemove, onUpdate, onRef
                   </button>
                 ))}
               </div>
-              <FinancialTable raw={raw} period={period} />
+              <FinancialTable
+                income={s.inc || []}
+                balance={s.bal || []}
+                cashflow={s.cf || []}
+                metrics={s.met || []}
+                ratios={s.rat || []}
+                period={period}
+              />
 
               <div className="bottom-grid">
                 {/* Questions clés */}
