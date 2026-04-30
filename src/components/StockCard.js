@@ -5,6 +5,7 @@ import { computeScore } from "../thresholds";
 import MoatSection from "./MoatSection";
 import ManagementSection from "./ManagementSection";
 import BusinessAnalysisSection from "./BusinessAnalysisSection";
+import GuidanceSection from "./GuidanceSection";
 import DCFSection from "./DCFSection";
 import SyntheseSection from "./SyntheseSection";
 import ValuationSection from "./ValuationSection";
@@ -47,7 +48,7 @@ const FinChart = ({ years, rawValues, fmt }) => {
 
 // ── Financial Table ──────────────────────────────────────────────────────────
 
-const FinancialTable = ({ income: rawInc, balance: rawBal, cashflow: rawCf, metrics: rawMet, ratios: rawRat, period }) => {
+const FinancialTable = ({ income: rawInc, balance: rawBal, cashflow: rawCf, metrics: rawMet, ratios: rawRat, period, ttm = {} }) => {
   const [expandedRow, setExpandedRow] = useState(null);
 
   const LIMIT = period === "max" ? 20 : period;
@@ -68,6 +69,7 @@ const FinancialTable = ({ income: rawInc, balance: rawBal, cashflow: rawCf, metr
   const curMet = rawMet[0] || {};
   const curRat = rawRat[0] || {};
   const latestYear = curInc.date?.slice(0, 4) || new Date().getFullYear().toString();
+  const t = ttm; // TTM values shorthand
 
   const byYear = (arr, year) => arr.find(r => r.date?.startsWith(year)) || {};
 
@@ -132,56 +134,56 @@ const FinancialTable = ({ income: rawInc, balance: rawBal, cashflow: rawCf, metr
   sec("Compte de résultat");
   row("Chiffre d'affaires",
     y => byYear(inc, y).revenue, fM,
-    v => trendCAGR(v), curInc.revenue);
+    v => trendCAGR(v), t.revenue ?? curInc.revenue);
   row("Résultat net",
     y => byYear(inc, y).netIncome, fM,
-    v => trendCAGR(v), curInc.netIncome);
+    v => trendCAGR(v), t.netIncome ?? curInc.netIncome);
   row("Marge nette",
     y => { const r = byYear(inc, y); return r.netIncome && r.revenue ? r.netIncome / r.revenue : null; }, fP,
     v => trendLevel(v, 0.20, 0.10),
-    curInc.netIncome && curInc.revenue ? curInc.netIncome / curInc.revenue : null);
+    t.netIncome != null && t.revenue ? t.netIncome / t.revenue : (curInc.netIncome && curInc.revenue ? curInc.netIncome / curInc.revenue : null));
   row("EBITDA",
     y => byYear(inc, y).ebitda, fM,
-    v => trendCAGR(v), curInc.ebitda);
+    v => trendCAGR(v), t.ebitda ?? curInc.ebitda);
   row("BPA (dilué)",
     y => byYear(inc, y).eps, fE,
-    v => trendCAGR(v), curInc.eps);
+    v => trendCAGR(v), t.eps ?? curInc.eps);
   row("Actions en circulation",
     y => byYear(inc, y).weightedAverageShsOut, fSh,
-    v => trendCAGR(v, 0.02, 0.005, true), curInc.weightedAverageShsOut);
+    v => trendCAGR(v, 0.02, 0.005, true), t.weightedAverageShsOut ?? curInc.weightedAverageShsOut);
 
   // Bilan
   sec("Bilan");
   row("Fonds propres",
     y => byYear(bal, y).totalStockholdersEquity, fM,
-    v => trendCAGR(v, 0.05, 0.02), curBal.totalStockholdersEquity);
+    v => trendCAGR(v, 0.05, 0.02), t.totalStockholdersEquity ?? curBal.totalStockholdersEquity);
   row("Dette totale",
     y => byYear(bal, y).totalDebt, fM,
-    v => trendCAGR(v, 0.05, 0.02, true), curBal.totalDebt);
+    v => trendCAGR(v, 0.05, 0.02, true), t.totalDebt ?? curBal.totalDebt);
   row("Dette nette",
     y => byYear(bal, y).netDebt, fM,
-    v => trendCAGR(v, 0.05, 0.02, true), curBal.netDebt);
+    v => trendCAGR(v, 0.05, 0.02, true), t.netDebt ?? curBal.netDebt);
   row("Dette nette / EBITDA",
     y => { const b = byYear(bal, y); const i = byYear(inc, y); return b.netDebt != null && i.ebitda && i.ebitda > 0 ? b.netDebt / i.ebitda : null; }, fR,
     v => trendLevel(v, 2, 3, true),
-    curBal.netDebt != null && curInc.ebitda && curInc.ebitda > 0 ? curBal.netDebt / curInc.ebitda : null);
+    t.netDebt != null && t.ebitda && t.ebitda > 0 ? t.netDebt / t.ebitda : (curBal.netDebt != null && curInc.ebitda && curInc.ebitda > 0 ? curBal.netDebt / curInc.ebitda : null));
 
   // Cash Flow
   sec("Cash Flow");
   row("Flux opérationnel (OCF)",
     y => byYear(cf, y).operatingCashFlow, fM,
-    v => trendCAGR(v), curCF.operatingCashFlow);
+    v => trendCAGR(v), t.operatingCashFlow ?? curCF.operatingCashFlow);
   row("Free Cash Flow",
     y => byYear(cf, y).freeCashFlow, fM,
-    v => trendCAGR(v), curCF.freeCashFlow);
+    v => trendCAGR(v), t.freeCashFlow ?? curCF.freeCashFlow);
   row("Capex total",
     y => { const r = byYear(cf, y); return r.capitalExpenditure != null ? Math.abs(r.capitalExpenditure) : null; }, fM,
     v => trendCAGR(v, 0.05, 0.02),
-    curCF.capitalExpenditure != null ? Math.abs(curCF.capitalExpenditure) : null);
+    t.capitalExpenditure != null ? Math.abs(t.capitalExpenditure) : (curCF.capitalExpenditure != null ? Math.abs(curCF.capitalExpenditure) : null));
   row("Dividendes versés",
     y => { const r = byYear(cf, y); return r.dividendsPaid != null ? Math.abs(r.dividendsPaid) : null; }, fM,
     v => trendCAGR(v, 0.03, 0.01),
-    curCF.dividendsPaid != null ? Math.abs(curCF.dividendsPaid) : null);
+    t.dividendsPaid != null ? Math.abs(t.dividendsPaid) : (curCF.dividendsPaid != null ? Math.abs(curCF.dividendsPaid) : null));
   row("Dividende par action",
     y => {
       const c = byYear(cf, y); const i = byYear(inc, y);
@@ -189,7 +191,7 @@ const FinancialTable = ({ income: rawInc, balance: rawBal, cashflow: rawCf, metr
       return d != null && i.weightedAverageShsOut > 0 ? d / i.weightedAverageShsOut : null;
     }, fE,
     v => trendCAGR(v, 0.05, 0.02),
-    (() => {
+    t.dividendPerShare ?? (() => {
       const d = curCF.dividendsPaid != null ? Math.abs(curCF.dividendsPaid) : null;
       return d != null && curInc.weightedAverageShsOut > 0 ? d / curInc.weightedAverageShsOut : null;
     })());
@@ -199,7 +201,7 @@ const FinancialTable = ({ income: rawInc, balance: rawBal, cashflow: rawCf, metr
   row("D&A — capex maintenance (estimé)",
     y => byYear(cf, y).depreciationAndAmortization, fM,
     v => trendCAGR(v, 0.05, 0.02),
-    curCF.depreciationAndAmortization);
+    t.depreciationAndAmortization ?? curCF.depreciationAndAmortization);
   row("Capex de croissance (calculé)",
     y => {
       const r = byYear(cf, y);
@@ -209,8 +211,9 @@ const FinancialTable = ({ income: rawInc, balance: rawBal, cashflow: rawCf, metr
     }, fM,
     v => trendCAGR(v, 0.05, 0.02),
     (() => {
-      const cap = curCF.capitalExpenditure != null ? Math.abs(curCF.capitalExpenditure) : null;
-      return cap != null && curCF.depreciationAndAmortization != null ? Math.max(0, cap - curCF.depreciationAndAmortization) : null;
+      const cap = t.capitalExpenditure != null ? Math.abs(t.capitalExpenditure) : (curCF.capitalExpenditure != null ? Math.abs(curCF.capitalExpenditure) : null);
+      const da  = t.depreciationAndAmortization ?? curCF.depreciationAndAmortization;
+      return cap != null && da != null ? Math.max(0, cap - da) : null;
     })());
   row("Owner's Earnings",
     y => {
@@ -219,26 +222,43 @@ const FinancialTable = ({ income: rawInc, balance: rawBal, cashflow: rawCf, metr
         ? r.operatingCashFlow - r.depreciationAndAmortization : null;
     }, fM,
     v => trendCAGR(v),
-    curCF.operatingCashFlow != null && curCF.depreciationAndAmortization != null
-      ? curCF.operatingCashFlow - curCF.depreciationAndAmortization : null);
+    (() => {
+      const ocf = t.operatingCashFlow ?? curCF.operatingCashFlow;
+      const da  = t.depreciationAndAmortization ?? curCF.depreciationAndAmortization;
+      return ocf != null && da != null ? ocf - da : null;
+    })());
 
   // Rentabilité
   sec("Rentabilité");
   row("ROIC",
     y => byYear(met, y).roic, fP,
-    v => trendLevel(v, 0.20, 0.15), curMet.roic);
+    v => trendLevel(v, 0.20, 0.15),
+    (() => {
+      const eq = t.totalStockholdersEquity; const nd = t.netDebt; const ni = t.netIncome;
+      if (ni != null && eq != null && nd != null && (eq + nd) > 0) return ni / (eq + nd);
+      return curMet.roic;
+    })());
   row("ROE",
     y => byYear(met, y).roe, fP,
-    v => trendLevel(v, 0.15, 0.10), curMet.roe);
+    v => trendLevel(v, 0.15, 0.10),
+    (() => {
+      const eq = t.totalStockholdersEquity; const ni = t.netIncome;
+      if (ni != null && eq != null && eq > 0) return ni / eq;
+      return curMet.roe;
+    })());
   row("PER historique",
     y => byYear(met, y).peRatio, fR,
     v => trendCAGR(v, 0.05, 0.02, true), curMet.peRatio);
   row("Payout Ratio",
     y => byYear(rat, y).payoutRatio, fP,
-    v => trendLevel(v, 0.40, 0.60, true), curRat.payoutRatio);
+    v => trendLevel(v, 0.40, 0.60, true),
+    t.dividendsPaid != null && t.netIncome && t.netIncome > 0
+      ? Math.abs(t.dividendsPaid) / t.netIncome : curRat.payoutRatio);
   row("Dette / Fonds propres",
     y => byYear(rat, y).debtToEquity, fR,
-    v => trendLevel(v, 1, 2, true), curRat.debtToEquity);
+    v => trendLevel(v, 1, 2, true),
+    t.totalDebt != null && t.totalStockholdersEquity && t.totalStockholdersEquity > 0
+      ? t.totalDebt / t.totalStockholdersEquity : curRat.debtToEquity);
 
   return (
     <div className="fin-table-wrap">
@@ -247,7 +267,7 @@ const FinancialTable = ({ income: rawInc, balance: rawBal, cashflow: rawCf, metr
           <tr>
             <th className="ft-label" />
             {YEARS.map(y => <th key={y} className="ft-year">{y}</th>)}
-            <th className="ft-year ft-year-current">{latestYear} ★</th>
+            <th className="ft-year ft-year-current">TTM ★</th>
             <th className="ft-trend">Tendance</th>
           </tr>
         </thead>
@@ -305,6 +325,7 @@ const TABS = [
   { id: "moat",        label: "MOAT" },
   { id: "management",  label: "Management" },
   { id: "analysis",    label: "Analyse" },
+  { id: "guidance",    label: "Guidance" },
   { id: "positions",   label: "Positions" },
 ];
 
@@ -434,6 +455,7 @@ export default function StockCard({ stock, thresholds, onRemove, onUpdate, onRef
                 metrics={s.met || []}
                 ratios={s.rat || []}
                 period={period}
+                ttm={s.ttm || {}}
               />
 
               <div className="bottom-grid">
@@ -494,6 +516,7 @@ export default function StockCard({ stock, thresholds, onRemove, onUpdate, onRef
           {activeTab === "moat"       && <MoatSection            stock={stock} onUpdate={onUpdate} />}
           {activeTab === "management" && <ManagementSection       stock={stock} onUpdate={onUpdate} />}
           {activeTab === "analysis"   && <BusinessAnalysisSection stock={stock} onUpdate={onUpdate} />}
+          {activeTab === "guidance"   && <GuidanceSection         stock={stock} onUpdate={onUpdate} />}
           {activeTab === "positions"  && <PositionsSection        stock={stock} onUpdate={onUpdate} />}
         </div>
       )}

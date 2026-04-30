@@ -744,6 +744,82 @@ def get_stock(symbol):
     except Exception:
         pass
 
+    # ── TTM (Trailing Twelve Months) from quarterly statements ──────────────────
+    ttm = {}
+    try:
+        q_inc = ticker.quarterly_income_stmt
+        q_cf  = ticker.quarterly_cash_flow
+        q_bal = ticker.quarterly_balance_sheet
+
+        def _q_sum(df, *row_keys):
+            for key in row_keys:
+                if key in df.index:
+                    vals_q = []
+                    for c in df.columns[:4]:
+                        v = df.loc[key, c]
+                        if pd.notna(v):
+                            vals_q.append(float(v))
+                    if vals_q:
+                        return sum(vals_q)
+            return None
+
+        def _q_last(df, *row_keys):
+            for key in row_keys:
+                if key in df.index and len(df.columns) > 0:
+                    v = df.loc[key, df.columns[0]]
+                    if pd.notna(v):
+                        return float(v)
+            return None
+
+        t_rev  = _q_sum(q_inc, "Total Revenue", "Revenue")
+        t_ni   = _q_sum(q_inc, "Net Income", "Net Income Common Stockholders",
+                                "Net Income Applicable To Common Shares")
+        t_ebit = _q_sum(q_inc, "EBITDA", "Normalized EBITDA")
+        t_oi   = _q_sum(q_inc, "Operating Income", "Total Operating Income As Reported", "EBIT")
+        t_shs  = _q_last(q_inc, "Basic Average Shares", "Diluted Average Shares",
+                                 "Weighted Average Diluted Shares Outstanding",
+                                 "Weighted Average Shares")
+        t_ocf  = _q_sum(q_cf, "Operating Cash Flow",
+                               "Cash Flow From Continuing Operating Activities")
+        t_fcf  = _q_sum(q_cf, "Free Cash Flow")
+        t_cap  = _q_sum(q_cf, "Capital Expenditure")
+        t_da   = _q_sum(q_cf, "Depreciation And Amortization", "Reconciled Depreciation",
+                               "Depreciation Amortization Depletion", "Depreciation")
+        t_div  = _q_sum(q_cf, "Common Stock Dividend Paid", "Cash Dividends Paid",
+                               "Payment Of Dividends", "Dividends Paid",
+                               "Cash Dividends Paid Common Stock")
+        if t_fcf is None and t_ocf is not None and t_cap is not None:
+            t_fcf = t_ocf + t_cap  # capex is negative outflow in yfinance
+        t_eq   = _q_last(q_bal, "Stockholders Equity", "Total Equity Gross Minority Interest",
+                                 "Common Stock Equity", "Total Stockholders Equity")
+        t_debt = _q_last(q_bal, "Total Debt", "Long Term Debt And Capital Lease Obligation",
+                                 "Long Term Debt", "Total Long Term Debt")
+        t_cash = _q_last(q_bal, "Cash And Cash Equivalents",
+                                 "Cash Cash Equivalents And Short Term Investments",
+                                 "Cash And Short Term Investments")
+        t_nd   = (t_debt - t_cash) if t_debt is not None and t_cash is not None else None
+        t_eps  = clean(t_ni / t_shs) if t_ni is not None and t_shs and t_shs > 0 else None
+        t_dps  = clean(abs(t_div) / t_shs) if t_div is not None and t_shs and t_shs > 0 else None
+        ttm = {
+            "revenue":                     clean(t_rev),
+            "netIncome":                   clean(t_ni),
+            "ebitda":                      clean(t_ebit),
+            "operatingIncome":             clean(t_oi),
+            "eps":                         t_eps,
+            "weightedAverageShsOut":       clean(t_shs),
+            "operatingCashFlow":           clean(t_ocf),
+            "freeCashFlow":                clean(t_fcf),
+            "capitalExpenditure":          clean(t_cap),
+            "depreciationAndAmortization": clean(t_da),
+            "dividendsPaid":               clean(t_div),
+            "dividendPerShare":            t_dps,
+            "totalStockholdersEquity":     clean(t_eq),
+            "totalDebt":                   clean(t_debt),
+            "netDebt":                     clean(t_nd),
+        }
+    except Exception:
+        ttm = {}
+
     return jsonify({
         "quote":         quote,
         "profile":       profile,
@@ -753,6 +829,7 @@ def get_stock(symbol):
         "metrics":       metrics,
         "ratios":        ratios,
         "estimates":     estimates,
+        "ttm":           ttm,
         "dividends":     {"historical": dividends_hist},
         "_dataYears":       len(income),
         "_avYears":         av_years,
@@ -795,7 +872,7 @@ def debug_rows(symbol):
 def analyze_stock(symbol, analysis_type):
     if not ANTHROPIC_KEY or not TAVILY_KEY:
         return jsonify({"error": "ANTHROPIC_API_KEY ou TAVILY_API_KEY manquant dans .env"}), 400
-    if analysis_type not in ("moat", "management", "business"):
+    if analysis_type not in ("moat", "management", "business", "guidance"):
         return jsonify({"error": "Type invalide"}), 400
 
     data        = request.get_json() or {}
@@ -820,6 +897,12 @@ def analyze_stock(symbol, analysis_type):
             f"{company} pricing power customer retention switching costs concrete examples",
             f"{company} competitive advantages vs {industry} competitors barriers to entry data",
             f"{company} brand value patents licenses monopoly position numbers",
+        ]
+    elif analysis_type == "guidance":
+        queries = [
+            f"{company} quarterly results earnings guidance 2025 2026 outlook revenue growth",
+            f"{company} earnings call management guidance forecast revenue profit 2025 2026",
+            f"{company} analyst consensus EPS revenue growth estimate 2026 price target",
         ]
     else:
         queries = [
@@ -975,6 +1058,153 @@ Réponds avec ce JSON exact (analysis = 3-5 phrases avec faits précis) :
   "sources": ["Titre source 1", "Titre source 2"]
 }}"""
 
+    elif analysis_type == "guidance":
+        # ── Fetch TTM from yfinance quarterly statements ───────────────────────
+        ttm_data = {}
+        try:
+            ticker_yf = yf.Ticker(symbol)
+            q_inc = ticker_yf.quarterly_income_stmt
+            q_cf  = ticker_yf.quarterly_cash_flow
+
+            def _ttm(df, *row_keys):
+                for key in row_keys:
+                    if key in df.index:
+                        vals = []
+                        for c in df.columns[:4]:
+                            v = df.loc[key, c]
+                            if pd.notna(v):
+                                vals.append(float(v))
+                        if vals:
+                            return sum(vals)
+                return None
+
+            ttm_revenue = _ttm(q_inc, "Total Revenue", "Revenue")
+            ttm_ni      = _ttm(q_inc, "Net Income", "Net Income Common Stockholders")
+            ttm_ocf     = _ttm(q_cf,  "Operating Cash Flow", "Cash Flow From Continuing Operating Activities")
+            ttm_capex   = _ttm(q_cf,  "Capital Expenditure")
+            ttm_fcf_raw = _ttm(q_cf,  "Free Cash Flow")
+            ttm_fcf = ttm_fcf_raw if ttm_fcf_raw is not None else (
+                (ttm_ocf + ttm_capex) if ttm_ocf is not None and ttm_capex is not None else None
+            )
+            ttm_data = {
+                "revenue":   clean(ttm_revenue),
+                "netIncome": clean(ttm_ni),
+                "fcf":       clean(ttm_fcf),
+            }
+        except Exception:
+            ttm_data = {}
+
+        hist_revenue = data.get("historicalRevenue", [])
+        hist_ni      = data.get("historicalNI", [])
+        hist_fcf     = data.get("historicalFCF", [])
+        dcf_params   = data.get("dcfParams", {})
+        estimates    = data.get("analystEstimates", [])
+
+        def fmt_bn(v):
+            if v is None: return "N/A"
+            abs_v = abs(v)
+            if abs_v >= 1e12: return f"${v/1e12:.2f}T"
+            if abs_v >= 1e9:  return f"${v/1e9:.1f}B"
+            return f"${v/1e6:.0f}M"
+
+        def pct_chg(new_v, old_v):
+            if new_v is None or old_v is None or old_v == 0: return "N/A"
+            return f"{(new_v/old_v - 1)*100:+.1f}%"
+
+        hist_ctx = ""
+        if hist_revenue:
+            hist_ctx += "Revenus annuels :\n"
+            for r in hist_revenue:
+                hist_ctx += f"  {r['year']}: {fmt_bn(r['value'])}\n"
+        if hist_ni:
+            hist_ctx += "\nBénéfice net annuel :\n"
+            for r in hist_ni:
+                hist_ctx += f"  {r['year']}: {fmt_bn(r['value'])}\n"
+        if hist_fcf:
+            hist_ctx += "\nFree Cash Flow annuel :\n"
+            for r in hist_fcf:
+                hist_ctx += f"  {r['year']}: {fmt_bn(r['value'])}\n"
+
+        last_rev = hist_revenue[-1]["value"] if hist_revenue else None
+        last_ni  = hist_ni[-1]["value"]      if hist_ni      else None
+        last_fcf = hist_fcf[-1]["value"]     if hist_fcf     else None
+
+        ttm_ctx = (
+            f"TTM vs dernière année complète :\n"
+            f"  Revenu : {fmt_bn(ttm_data.get('revenue'))} vs {fmt_bn(last_rev)} ({pct_chg(ttm_data.get('revenue'), last_rev)})\n"
+            f"  Bénéfice net : {fmt_bn(ttm_data.get('netIncome'))} vs {fmt_bn(last_ni)} ({pct_chg(ttm_data.get('netIncome'), last_ni)})\n"
+            f"  FCF : {fmt_bn(ttm_data.get('fcf'))} vs {fmt_bn(last_fcf)} ({pct_chg(ttm_data.get('fcf'), last_fcf)})"
+        )
+
+        est_ctx = ""
+        if estimates:
+            est_ctx = "\nEstimations analystes :\n"
+            for e in estimates[:3]:
+                yr  = str(e.get("date", ""))[:4]
+                eps = e.get("estimatedEpsAvg")
+                rev = e.get("estimatedRevenueAvg")
+                est_ctx += f"  {yr}: EPS estimé = {f'${eps:.2f}' if eps else 'N/A'}, CA estimé = {fmt_bn(rev)}\n"
+
+        dcf_ctx = ""
+        if dcf_params:
+            gr = dcf_params.get("growthRate")
+            ml = dcf_params.get("multiple")
+            sc = dcf_params.get("shareChange")
+            dcf_ctx = (
+                f"\nParamètres DCF actuels de l'investisseur :\n"
+                f"  Taux de croissance FCF : {f'{gr*100:.1f}%' if gr is not None else 'N/A'}\n"
+                f"  Multiple de sortie : {f'{ml:.0f}x' if ml is not None else 'N/A'}\n"
+                f"  Variation actions/an : {f'{sc*100:.1f}%' if sc is not None else 'N/A'}\n"
+            )
+
+        system = """Tu es un analyste financier expert en évaluation de titres boursiers.
+Tu analyses les résultats trimestriels et les guidances pour aider un investisseur à réviser ses hypothèses DCF.
+Ta méthode : chiffres précis, faits vérifiables, aucune généralité vague.
+Tu réponds en texte brut avec les délimiteurs de section demandés, sans texte en dehors des balises."""
+
+        user_prompt = f"""Analyse la situation financière récente de {company} ({sector} — {industry}) pour révision de modèle DCF.
+
+DONNÉES HISTORIQUES (5 dernières années) :
+{hist_ctx}
+
+{ttm_ctx}
+{est_ctx}
+{dcf_ctx}
+
+INFORMATIONS RÉCENTES (résultats, guidance, analystes) :
+{search_context[:5000]}
+
+Génère exactement ces 4 sections texte + 1 section JSON :
+
+===BEGIN:ttm===
+TTM vs dernière année complète : commente les 3 métriques (CA, BN, FCF). Trajectoire (accélération/ralentissement). Qualité du FCF vs bénéfice comptable. Signaux à surveiller.
+===END:ttm===
+
+===BEGIN:historique===
+Tendance 5 ans : CAGR du CA, BN et FCF avec chiffres. Qualité et régularité de la croissance. Tirée par volumes, prix ou marges ? Points positifs et points d'attention.
+===END:historique===
+
+===BEGIN:guidance===
+Ce que le management a annoncé pour les 12-18 prochains mois. Consensus analystes (EPS, CA). Comparaison vs historique. La guidance est-elle conservatrice ou agressive ? One-offs annoncés.
+===END:guidance===
+
+===BEGIN:verdict===
+Les hypothèses DCF actuelles sont-elles justifiées ? Révision à la hausse ou à la baisse ? Explique avec des chiffres précis. Mentionne les risques principaux sur les hypothèses.
+===END:verdict===
+
+===BEGIN:dcf_params===
+{{"growthRate": 0.00, "multiple": 0, "shareChange": 0.00, "confidence": "medium", "reasoning": "Justification courte avec chiffres clés."}}
+===END:dcf_params===
+
+RÈGLES pour dcf_params :
+- growthRate : taux de croissance annuel FCF suggéré (ex: 0.08 pour 8%)
+- multiple : multiple de sortie EV/FCF suggéré (ex: 25)
+- shareChange : variation annuelle du nombre d'actions (ex: -0.02 pour rachat de 2%/an)
+- confidence : "high" (données solides), "medium" (quelques incertitudes), "low" (forte incertitude)
+- reasoning : 1-2 phrases avec les chiffres clés qui justifient ces valeurs
+
+Écris UNIQUEMENT le contenu entre les balises, sans aucun texte avant ou après."""
+
     else:  # management
         system = """Tu es un analyste financier senior spécialisé en évaluation de la qualité des équipes dirigeantes.
 Ta méthode : tu analyses les ACTES, pas les discours. Chaque point doit être étayé par :
@@ -1031,7 +1261,7 @@ Réponds avec ce JSON exact (analysis = 3-5 phrases avec faits précis, noms, da
     client = _anthropic.Anthropic(api_key=ANTHROPIC_KEY)
     msg = client.messages.create(
         model="claude-sonnet-4-5",
-        max_tokens=8000 if analysis_type == "business" else 3000,
+        max_tokens=8000 if analysis_type in ("business", "guidance") else 3000,
         system=system,
         messages=[{"role": "user", "content": user_prompt}],
     )
@@ -1062,6 +1292,38 @@ Réponds avec ce JSON exact (analysis = 3-5 phrases avec faits précis, noms, da
                 content = m2.group(1).strip() if m2 else ""
             sections.append({"id": sid, "title": title, "content": content})
         result = {"sections": sections}
+
+    # ── Guidance: delimiter-based parsing + JSON dcf_params ──────────────────
+    elif analysis_type == "guidance":
+        SECTION_META = [
+            ("ttm",        "TTM vs dernière année"),
+            ("historique", "Tendance historique 5 ans"),
+            ("guidance",   "Guidance & consensus analystes"),
+            ("verdict",    "Verdict & révision DCF"),
+        ]
+        sections = []
+        for sid, title in SECTION_META:
+            pattern = rf"===\s*BEGIN\s*:\s*{sid}\s*===(.*?)===\s*END\s*:\s*{sid}\s*==="
+            m = _re.search(pattern, raw_text, _re.DOTALL | _re.IGNORECASE)
+            if m:
+                content = m.group(1).strip()
+            else:
+                m2 = _re.search(rf"===\s*BEGIN\s*:\s*{sid}\s*===(.*)", raw_text, _re.DOTALL | _re.IGNORECASE)
+                content = m2.group(1).strip() if m2 else ""
+            sections.append({"id": sid, "title": title, "content": content})
+
+        dcf_suggestions = None
+        dcf_match = _re.search(
+            r"===\s*BEGIN\s*:\s*dcf_params\s*===(.*?)===\s*END\s*:\s*dcf_params\s*===",
+            raw_text, _re.DOTALL | _re.IGNORECASE
+        )
+        if dcf_match:
+            try:
+                dcf_suggestions = json.loads(dcf_match.group(1).strip())
+            except Exception:
+                pass
+
+        result = {"sections": sections, "dcfSuggestions": dcf_suggestions, "ttmData": ttm_data}
 
     # ── Moat / Management: JSON with control-char fixing ─────────────────────
     else:

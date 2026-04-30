@@ -29,7 +29,7 @@ export const colorFromThresholds = (value, greenThreshold, orangeThreshold, inve
 
 export const processData = (raw) => {
   const { quote, profile, income, balance, cashflow, metrics, ratios, estimates, dividends,
-          priceTarget, analystRating } = raw;
+          priceTarget, analystRating, ttm } = raw;
 
   const q = Array.isArray(quote) ? quote[0] : quote;
   const p = Array.isArray(profile) ? profile[0] : profile;
@@ -172,6 +172,7 @@ export const processData = (raw) => {
     ownerEarningsCurrent,
     priceTarget, analystRating,
     inc, cf, met, rat, est, divs, bal,
+    ttm: ttm || {},
   };
 };
 
