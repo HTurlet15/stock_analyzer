@@ -1125,9 +1125,12 @@ Réponds avec ce JSON exact (analysis = 3-5 phrases avec faits précis) :
             for r in hist_fcf:
                 hist_ctx += f"  {r['year']}: {fmt_bn(r['value'])}\n"
 
-        last_rev = hist_revenue[-1]["value"] if hist_revenue else None
-        last_ni  = hist_ni[-1]["value"]      if hist_ni      else None
-        last_fcf = hist_fcf[-1]["value"]     if hist_fcf     else None
+        # "Last year" = previous calendar year (currentYear - 1), not most recent fiscal entry
+        prev_year = str(datetime.date.today().year - 1)
+        _find = lambda lst: next((r["value"] for r in lst if str(r.get("year", ""))[:4] == prev_year), lst[-1]["value"] if lst else None)
+        last_rev = _find(hist_revenue) if hist_revenue else None
+        last_ni  = _find(hist_ni)      if hist_ni      else None
+        last_fcf = _find(hist_fcf)     if hist_fcf     else None
 
         ttm_ctx = (
             f"TTM vs dernière année complète :\n"

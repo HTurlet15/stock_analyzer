@@ -90,8 +90,12 @@ export default function GuidanceSection({ stock, onUpdate }) {
   // ── Analyst estimates ────────────────────────────────────────────────────────
   const estimates = (s.est || []).slice(0, 3);
 
-  // ── TTM data from cached AI result ──────────────────────────────────────────
-  const ttmData = aiResult?.ttmData || null;
+  // ── TTM: use s.ttm (always available from main stock fetch) ─────────────────
+  const ttmData = s.ttm && Object.keys(s.ttm).length > 0 ? s.ttm : null;
+
+  // ── "Année dernière" = previous calendar year (currentYear - 1) ─────────────
+  const prevYear = String(new Date().getFullYear() - 1);
+  const lastYearRow = histRows.find(r => r.year === prevYear) || histRows[histRows.length - 1] || {};
 
   const fmtDate = (iso) => new Date(iso).toLocaleDateString("fr-FR", {
     day: "numeric", month: "long", year: "numeric",
@@ -207,24 +211,24 @@ export default function GuidanceSection({ stock, onUpdate }) {
           </div>
         )}
 
-        {/* TTM table (only after AI analysis has run) */}
+        {/* TTM table — always visible once stock data is loaded */}
         {ttmData && (
           <div className="gui-table-card">
-            <p className="gui-table-title">TTM vs dernière année complète</p>
+            <p className="gui-table-title">TTM vs {prevYear}</p>
             <table className="gui-table">
               <thead>
                 <tr>
                   <th>Métrique</th>
-                  <th>Dernière année</th>
+                  <th>{prevYear}</th>
                   <th>TTM</th>
                   <th>Variation</th>
                 </tr>
               </thead>
               <tbody>
                 {[
-                  { label: "Revenu", key: "revenue", last: histRows.slice(-1)[0]?.revenue },
-                  { label: "Bénéfice net", key: "netIncome", last: histRows.slice(-1)[0]?.netIncome },
-                  { label: "Free Cash Flow", key: "fcf", last: histRows.slice(-1)[0]?.fcf },
+                  { label: "Revenu",         key: "revenue",   last: lastYearRow.revenue   },
+                  { label: "Bénéfice net",   key: "netIncome", last: lastYearRow.netIncome },
+                  { label: "Free Cash Flow", key: "fcf",       last: lastYearRow.fcf       },
                 ].map(row => {
                   const ttmVal = ttmData[row.key];
                   const pctChg = ttmVal != null && row.last != null && row.last !== 0
