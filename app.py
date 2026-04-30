@@ -1160,12 +1160,13 @@ Réponds avec ce JSON exact (analysis = 3-5 phrases avec faits précis) :
                 f"  Variation actions/an : {f'{sc*100:.1f}%' if sc is not None else 'N/A'}\n"
             )
 
-        system = """Tu es un analyste financier expert en évaluation de titres boursiers.
-Tu analyses les résultats trimestriels et les guidances pour aider un investisseur à réviser ses hypothèses DCF.
-Ta méthode : chiffres précis, faits vérifiables, aucune généralité vague.
+        system = """Tu es un conseiller financier qui aide un investisseur particulier à comprendre les résultats d'une entreprise et à vérifier son modèle DCF.
+Ton style : clair, simple, vulgarisé — comme si tu expliquais à un ami intelligent qui ne travaille pas en finance.
+Tu vas droit au but : ce qui compte, ce qui ne compte pas, ce que ça change pour l'investisseur.
+Tu utilises des chiffres précis pour étayer chaque affirmation.
 Tu réponds en texte brut avec les délimiteurs de section demandés, sans texte en dehors des balises."""
 
-        user_prompt = f"""Analyse la situation financière récente de {company} ({sector} — {industry}) pour révision de modèle DCF.
+        user_prompt = f"""Aide-moi à comprendre la situation récente de {company} ({sector} — {industry}) et à vérifier mon modèle DCF.
 
 DONNÉES HISTORIQUES (5 dernières années) :
 {hist_ctx}
@@ -1174,37 +1175,52 @@ DONNÉES HISTORIQUES (5 dernières années) :
 {est_ctx}
 {dcf_ctx}
 
-INFORMATIONS RÉCENTES (résultats, guidance, analystes) :
+ACTUALITÉS, RÉSULTATS ET GUIDANCE (sources web) :
 {search_context[:5000]}
 
-Génère exactement ces 4 sections texte + 1 section JSON :
+Génère exactement ces 4 sections + 1 section JSON :
 
-===BEGIN:ttm===
-TTM vs dernière année complète : commente les 3 métriques (CA, BN, FCF). Trajectoire (accélération/ralentissement). Qualité du FCF vs bénéfice comptable. Signaux à surveiller.
-===END:ttm===
-
-===BEGIN:historique===
-Tendance 5 ans : CAGR du CA, BN et FCF avec chiffres. Qualité et régularité de la croissance. Tirée par volumes, prix ou marges ? Points positifs et points d'attention.
-===END:historique===
+===BEGIN:resultats===
+Explique les derniers résultats trimestriels simplement. Que s'est-il passé ?
+• Chiffre d'affaires : en hausse ou en baisse ? Était-ce une surprise positive ou négative vs les attentes ?
+• Bénéfice net et marges : s'améliorent-ils ?
+• Génération de cash (FCF ou OCF) : l'entreprise génère-t-elle plus ou moins de cash qu'avant ?
+Conclus en une phrase : c'est globalement bon, mitigé ou décevant, et pourquoi.
+===END:resultats===
 
 ===BEGIN:guidance===
-Ce que le management a annoncé pour les 12-18 prochains mois. Consensus analystes (EPS, CA). Comparaison vs historique. La guidance est-elle conservatrice ou agressive ? One-offs annoncés.
+Qu'est-ce que le management a annoncé pour la suite ?
+• Objectifs chiffrés pour les prochains trimestres ou l'année (revenu, marges, investissements prévus)
+• Le ton est-il confiant, prudent ou inquiet ? Y a-t-il des mises en garde ?
+• Qu'est-ce que les analystes anticipent (EPS et CA estimés) ?
+Conclus : la guidance est-elle rassurante, neutre ou préoccupante pour un actionnaire long terme ?
 ===END:guidance===
 
+===BEGIN:croissance===
+Pour le modèle DCF de cet investisseur, réponds à ces deux questions :
+
+1. FCF ou OCF ? Pour {company} spécifiquement, lequel de ces deux flux est le plus représentatif de la vraie capacité bénéficiaire ? Si l'entreprise investit massivement en capex de croissance (usines, infrastructure, R&D capitalisée), l'OCF est préférable car il reflète mieux le cash généré avant ces investissements discrétionnaires. Explique ton choix avec les chiffres de capex et D&A.
+
+2. Quelle croissance annuelle de ce flux est raisonnable sur 5-10 ans, basé sur l'historique et la guidance actuelle ? Donne une fourchette basse/haute et les 2-3 facteurs clés (moteurs de croissance, risques de ralentissement).
+===END:croissance===
+
 ===BEGIN:verdict===
-Les hypothèses DCF actuelles sont-elles justifiées ? Révision à la hausse ou à la baisse ? Explique avec des chiffres précis. Mentionne les risques principaux sur les hypothèses.
+En conclusion directe : les paramètres DCF actuels de l'investisseur sont-ils encore appropriés ?
+{dcf_ctx}
+Réponds clairement : à laisser tels quels / à revoir légèrement à la hausse / à revoir à la baisse.
+Explique en 2-3 phrases avec les chiffres précis qui justifient ta recommandation.
 ===END:verdict===
 
 ===BEGIN:dcf_params===
-{{"growthRate": 0.00, "multiple": 0, "shareChange": 0.00, "confidence": "medium", "reasoning": "Justification courte avec chiffres clés."}}
+{{"growthRate": 0.00, "multiple": 0, "shareChange": 0.00, "confidence": "medium", "reasoning": "1-2 phrases courtes avec les chiffres clés."}}
 ===END:dcf_params===
 
 RÈGLES pour dcf_params :
-- growthRate : taux de croissance annuel FCF suggéré (ex: 0.08 pour 8%)
-- multiple : multiple de sortie EV/FCF suggéré (ex: 25)
+- growthRate : taux de croissance annuel FCF ou OCF suggéré (ex: 0.08 pour 8%)
+- multiple : multiple de sortie EV/FCF ou EV/OCF suggéré (ex: 25)
 - shareChange : variation annuelle du nombre d'actions (ex: -0.02 pour rachat de 2%/an)
-- confidence : "high" (données solides), "medium" (quelques incertitudes), "low" (forte incertitude)
-- reasoning : 1-2 phrases avec les chiffres clés qui justifient ces valeurs
+- confidence : "high" (données solides, guidance claire), "medium" (quelques incertitudes), "low" (forte incertitude)
+- reasoning : 1-2 phrases courtes justifiant les valeurs avec chiffres
 
 Écris UNIQUEMENT le contenu entre les balises, sans aucun texte avant ou après."""
 
@@ -1299,10 +1315,10 @@ Réponds avec ce JSON exact (analysis = 3-5 phrases avec faits précis, noms, da
     # ── Guidance: delimiter-based parsing + JSON dcf_params ──────────────────
     elif analysis_type == "guidance":
         SECTION_META = [
-            ("ttm",        "TTM vs dernière année"),
-            ("historique", "Tendance historique 5 ans"),
-            ("guidance",   "Guidance & consensus analystes"),
-            ("verdict",    "Verdict & révision DCF"),
+            ("resultats",  "Derniers résultats"),
+            ("guidance",   "Guidance & objectifs"),
+            ("croissance", "Croissance FCF / OCF attendue"),
+            ("verdict",    "Verdict DCF"),
         ]
         sections = []
         for sid, title in SECTION_META:

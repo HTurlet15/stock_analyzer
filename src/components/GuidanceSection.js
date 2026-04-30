@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { num, pct, money } from "../utils";
+import { num, pct } from "../utils";
 import "./GuidanceSection.css";
+import "./BusinessAnalysisSection.css"; // reuse ba-* card styles
 
 // ── Formatting helpers ────────────────────────────────────────────────────────
 
@@ -24,12 +25,12 @@ const cagrOf = (arr) => {
     if (!isFinite(v) || isNaN(v)) return { label: "—", cls: "dim" };
     return { label: pct(v), cls: v >= 0.08 ? "green" : v >= 0.04 ? "orange" : "red" };
   }
-  if (first <= 0 && last > 0) return { label: "↑ Redressement", cls: "green" };
+  if (first <= 0 && last > 0)  return { label: "↑ Redressement", cls: "green" };
   if (first > 0  && last <= 0) return { label: "↓ Détérioration", cls: "red" };
   return { label: last > first ? "↑ S'améliore" : "↓ Se dégrade", cls: last > first ? "orange" : "red" };
 };
 
-// ── Text renderer (same pattern as BusinessAnalysisSection) ──────────────────
+// ── Text renderer — identical to BusinessAnalysisSection ──────────────────────
 
 function renderBold(line) {
   const parts = line.split(/\*\*(.+?)\*\*/);
@@ -40,16 +41,16 @@ function renderBold(line) {
 function FormattedContent({ text }) {
   if (!text) return null;
   return (
-    <div className="gui-formatted">
+    <div className="ba-formatted">
       {text.split("\n\n").map((block, bi) => (
-        <div key={bi} className="gui-block">
+        <div key={bi} className="ba-block">
           {block.split("\n").map((line, li) => {
             if (!line.trim()) return null;
             const isHeader = /^[A-ZÀ-Ü\s]+\s*:$/.test(line.trim());
             const isBullet = line.trim().startsWith("•") || line.trim().startsWith("-");
-            if (isHeader) return <p key={li} className="gui-block-header">{renderBold(line.trim())}</p>;
-            if (isBullet) return <p key={li} className="gui-bullet">{renderBold(line.trim())}</p>;
-            return <p key={li} className="gui-prose">{renderBold(line.trim())}</p>;
+            if (isHeader) return <p key={li} className="ba-block-header">{renderBold(line.trim())}</p>;
+            if (isBullet) return <p key={li} className="ba-bullet">{renderBold(line.trim())}</p>;
+            return <p key={li} className="ba-prose">{renderBold(line.trim())}</p>;
           })}
         </div>
       ))}
@@ -57,9 +58,7 @@ function FormattedContent({ text }) {
   );
 }
 
-// ── Section icons ─────────────────────────────────────────────────────────────
-
-const ICONS = { ttm: "📊", historique: "📈", guidance: "🗣️", verdict: "⚖️" };
+const ICONS = { resultats: "📊", guidance: "🗣️", croissance: "📈", verdict: "⚖️" };
 
 // ── GuidanceSection ───────────────────────────────────────────────────────────
 
@@ -76,7 +75,6 @@ export default function GuidanceSection({ stock, onUpdate }) {
   const incRows = (s.inc || []).slice(0, 5).reverse();
   const cfMap   = {};
   (s.cf || []).forEach(r => { cfMap[r.date?.slice(0, 4)] = r; });
-
   const histRows = incRows.map(r => {
     const yr = r.date?.slice(0, 4);
     const cf = cfMap[yr] || {};
@@ -94,7 +92,7 @@ export default function GuidanceSection({ stock, onUpdate }) {
   const ttmData = s.ttm && Object.keys(s.ttm).length > 0 ? s.ttm : null;
 
   // ── "Année dernière" = previous calendar year (currentYear - 1) ─────────────
-  const prevYear = String(new Date().getFullYear() - 1);
+  const prevYear    = String(new Date().getFullYear() - 1);
   const lastYearRow = histRows.find(r => r.year === prevYear) || histRows[histRows.length - 1] || {};
 
   const fmtDate = (iso) => new Date(iso).toLocaleDateString("fr-FR", {
@@ -119,21 +117,21 @@ export default function GuidanceSection({ stock, onUpdate }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          companyName:      stock.name,
-          sector:           stock.sector,
-          industry:         stock.industry,
-          dcfParams:        stock.dcfParams || {},
+          companyName:       stock.name,
+          sector:            stock.sector,
+          industry:          stock.industry,
+          dcfParams:         stock.dcfParams || {},
           historicalRevenue: histRevenue,
-          historicalNI:     histNI,
-          historicalFCF:    histFCF,
-          analystEstimates: estimates,
+          historicalNI:      histNI,
+          historicalFCF:     histFCF,
+          analystEstimates:  estimates,
         }),
       });
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error || "Erreur serveur");
       }
-      const data = await res.json();
+      const data   = await res.json();
       const result = { ...data, generatedAt: new Date().toISOString() };
       setAiResult(result);
       setExpanded(Object.fromEntries((data.sections || []).map(sec => [sec.id, true])));
@@ -153,32 +151,32 @@ export default function GuidanceSection({ stock, onUpdate }) {
     });
   };
 
-  const conf = aiResult?.dcfSuggestions?.confidence;
+  const conf      = aiResult?.dcfSuggestions?.confidence;
   const confLabel = { high: "Confiance élevée", medium: "Confiance moyenne", low: "Confiance faible" }[conf] || conf;
 
   return (
     <div className="gui-section">
 
       {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <div className="gui-header">
-        <div className="gui-header-left">
-          <p className="gui-title">Guidance & révision DCF trimestrielle</p>
-          <p className="gui-subtitle">
-            TTM · Historique 5 ans · Guidance management · Consensus analystes
+      <div className="ba-header">
+        <div className="ba-header-left">
+          <p className="section-label">Analyse guidance & DCF</p>
+          <p className="ba-subtitle">
+            Derniers résultats · Guidance management · Croissance FCF/OCF · Verdict DCF
           </p>
         </div>
-        <div className="gui-header-right">
+        <div className="ba-header-right">
           <button className="ai-analyze-btn" onClick={runAnalysis} disabled={analyzing}>
-            {analyzing ? "Analyse en cours…" : aiResult ? "Relancer l'analyse IA" : "Analyser la guidance IA"}
+            {analyzing ? "Analyse en cours…" : aiResult ? "Relancer l'analyse IA" : "Générer l'analyse IA"}
           </button>
           {analyzing && <span className="ai-spinner" />}
         </div>
       </div>
 
-      {/* ── Always-visible tables ────────────────────────────────────────────── */}
+      {/* ── Always-visible data tables ───────────────────────────────────────── */}
       <div className="gui-tables">
 
-        {/* Historical 5-year table */}
+        {/* 5-year history */}
         {histRows.length > 0 && (
           <div className="gui-table-card">
             <p className="gui-table-title">Historique 5 ans</p>
@@ -211,7 +209,7 @@ export default function GuidanceSection({ stock, onUpdate }) {
           </div>
         )}
 
-        {/* TTM table — always visible once stock data is loaded */}
+        {/* TTM vs previous year */}
         {ttmData && (
           <div className="gui-table-card">
             <p className="gui-table-title">TTM vs {prevYear}</p>
@@ -268,7 +266,7 @@ export default function GuidanceSection({ stock, onUpdate }) {
                 {estimates.map((e, i) => (
                   <tr key={i}>
                     <td>{e.date?.slice(0, 4)}</td>
-                    <td>{e.estimatedEpsAvg != null ? `$${num(e.estimatedEpsAvg, 2)}` : "—"}</td>
+                    <td>{e.estimatedEpsAvg  != null ? `$${num(e.estimatedEpsAvg,  2)}` : "—"}</td>
                     <td className="dim">{e.estimatedEpsHigh != null ? `$${num(e.estimatedEpsHigh, 2)}` : "—"}</td>
                     <td className="dim">{e.estimatedEpsLow  != null ? `$${num(e.estimatedEpsLow,  2)}` : "—"}</td>
                     <td>{fmtBn(e.estimatedRevenueAvg)}</td>
@@ -281,16 +279,16 @@ export default function GuidanceSection({ stock, onUpdate }) {
         )}
       </div>
 
-      {/* ── AI meta / empty state ────────────────────────────────────────────── */}
+      {/* ── AI meta bar ─────────────────────────────────────────────────────── */}
       {aiResult?.generatedAt && !analyzing && (
-        <div className="gui-meta">
+        <div className="ba-meta">
           <span className="ai-result-badge">Claude Sonnet</span>
-          <span className="gui-analyzed-date">Générée le {fmtDate(aiResult.generatedAt)}</span>
+          <span className="ai-analyzed-date">Générée le {fmtDate(aiResult.generatedAt)}</span>
           {aiResult.searchSources?.length > 0 && (
-            <div className="gui-sources">
-              <span className="gui-sources-label">Sources :</span>
+            <div className="ai-sources">
+              <span className="ai-sources-label">Sources :</span>
               {aiResult.searchSources.slice(0, 5).map((src, i) => (
-                <a key={i} href={src.url} target="_blank" rel="noreferrer" className="gui-source-link">
+                <a key={i} href={src.url} target="_blank" rel="noreferrer" className="ai-source-link">
                   {src.title}
                 </a>
               ))}
@@ -302,51 +300,44 @@ export default function GuidanceSection({ stock, onUpdate }) {
       {aiError && <div className="ai-error">Erreur : {aiError}</div>}
 
       {!aiResult && !analyzing && (
-        <div className="gui-empty">
-          <p>Clique sur <strong>Analyser la guidance IA</strong> pour obtenir :</p>
-          <ul className="gui-empty-list">
-            <li>📊 TTM — Revenu, Bénéfice net, FCF vs dernière année complète</li>
-            <li>📈 Tendance 5 ans — CAGR et qualité de la croissance</li>
-            <li>🗣️ Guidance management et consensus analystes</li>
-            <li>⚖️ Verdict — Tes hypothèses DCF doivent-elles changer ?</li>
+        <div className="ba-empty">
+          <p>Clique sur <strong>Générer l'analyse IA</strong> pour obtenir :</p>
+          <ul className="ba-empty-list">
+            <li>📊 Analyse des derniers résultats trimestriels en langage clair</li>
+            <li>🗣️ Guidance management — où va l'entreprise ?</li>
+            <li>📈 FCF ou OCF ? Quelle croissance anticiper pour ton DCF</li>
+            <li>⚖️ Verdict — tes paramètres DCF sont-ils toujours bons ?</li>
           </ul>
         </div>
       )}
 
-      {/* ── DCF suggestions box ──────────────────────────────────────────────── */}
+      {/* ── DCF suggestions box ─────────────────────────────────────────────── */}
       {aiResult?.dcfSuggestions && (
         <div className="gui-dcf-box">
           <div className="gui-dcf-header">
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <p className="gui-dcf-title">Paramètres DCF suggérés</p>
-              {conf && (
-                <span className={`gui-badge gui-badge-${conf}`}>{confLabel}</span>
-              )}
+              {conf && <span className={`gui-badge gui-badge-${conf}`}>{confLabel}</span>}
             </div>
-            <button className="gui-apply-btn" onClick={applyDcf}>
-              Appliquer au DCF
-            </button>
+            <button className="gui-apply-btn" onClick={applyDcf}>Appliquer au DCF</button>
           </div>
           <div className="gui-dcf-params">
             <div className="gui-dcf-param">
-              <span className="gui-dcf-param-label">Taux de croissance FCF</span>
+              <span className="gui-dcf-param-label">Taux de croissance</span>
               <span className="gui-dcf-param-value">
-                {aiResult.dcfSuggestions.growthRate != null
-                  ? pct(aiResult.dcfSuggestions.growthRate) : "—"}
+                {aiResult.dcfSuggestions.growthRate != null ? pct(aiResult.dcfSuggestions.growthRate) : "—"}
               </span>
             </div>
             <div className="gui-dcf-param">
               <span className="gui-dcf-param-label">Multiple de sortie</span>
               <span className="gui-dcf-param-value">
-                {aiResult.dcfSuggestions.multiple != null
-                  ? `${num(aiResult.dcfSuggestions.multiple, 0)}x` : "—"}
+                {aiResult.dcfSuggestions.multiple != null ? `${num(aiResult.dcfSuggestions.multiple, 0)}x` : "—"}
               </span>
             </div>
             <div className="gui-dcf-param">
               <span className="gui-dcf-param-label">Variation actions / an</span>
               <span className="gui-dcf-param-value">
-                {aiResult.dcfSuggestions.shareChange != null
-                  ? pct(aiResult.dcfSuggestions.shareChange) : "—"}
+                {aiResult.dcfSuggestions.shareChange != null ? pct(aiResult.dcfSuggestions.shareChange) : "—"}
               </span>
             </div>
           </div>
@@ -356,20 +347,20 @@ export default function GuidanceSection({ stock, onUpdate }) {
         </div>
       )}
 
-      {/* ── Expandable AI sections ───────────────────────────────────────────── */}
+      {/* ── Expandable AI sections — same style as Analyse tab ──────────────── */}
       {aiResult?.sections && (
-        <div className="gui-sections">
+        <div className="ba-sections">
           {aiResult.sections.map((section) => {
             const isOpen = expanded[section.id] !== false;
             return (
-              <div key={section.id} className="gui-card">
-                <button className="gui-card-header" onClick={() => toggleSection(section.id)}>
-                  <span className="gui-card-icon">{ICONS[section.id] || "📄"}</span>
-                  <span className="gui-card-title">{section.title}</span>
-                  <span className="gui-card-chevron">{isOpen ? "▲" : "▼"}</span>
+              <div key={section.id} className="ba-card">
+                <button className="ba-card-header" onClick={() => toggleSection(section.id)}>
+                  <span className="ba-card-icon">{ICONS[section.id] || "📄"}</span>
+                  <span className="ba-card-title">{section.title}</span>
+                  <span className="ba-card-chevron">{isOpen ? "▲" : "▼"}</span>
                 </button>
                 {isOpen && (
-                  <div className="gui-card-body">
+                  <div className="ba-card-body">
                     <FormattedContent text={section.content} />
                   </div>
                 )}
